@@ -4,89 +4,80 @@
 
 ## What this vault is
 
-A single centralized knowledge base for all my projects. Persistent memory across Claude Code sessions on every device.
+A centralized knowledge base for all your projects. Persistent memory across Claude Code sessions on every device.
 
 ## Project groups
 
-All projects fall into exactly one of three groups. Claude Code picks the group based on the repo's own `CLAUDE.md` (`group:` field) or the path.
+Groups are user-defined. The active list lives in `~/vault/.groups` (one slug per line). Each group has its own folder under the vault root.
 
-| Group      | Vault folder        | Tag          | Typical stack (adjust as you learn it) |
-|------------|---------------------|--------------|----------------------------------------|
-| Arc        | `arc/`              | `#arc`       | _fill in as projects grow_             |
-| TrueNode   | `truenode/`         | `#truenode`  | _fill in as projects grow_             |
-| CineSynth  | `cinesynth/`        | `#cinesynth` | _fill in as projects grow_             |
+Claude Code picks the group for a given repo based on:
+1. `group:` field in the repo's own `CLAUDE.md`.
+2. Path match: `.../<group>/...` where `<group>` is listed in `.groups`.
+3. Prompting the user once and remembering for the session.
 
-Each group folder contains: `architecture/`, `features/`, `data/`, `pipeline/`, `logs/`, and an `_MOC.md` map‑of‑contents.
+Add a new group:
+
+```bash
+echo "client-xyz" >> ~/vault/.groups
+mkdir -p ~/vault/client-xyz/{architecture,features,data,pipeline,logs}
+```
+
+Each group folder should contain: `architecture/`, `features/`, `data/`, `pipeline/`, `logs/`, and an `_MOC.md` map-of-contents.
 
 ## Zettelkasten rules
 
 ### Note creation
-- Wikilinks only for internal notes: `[[note-name]]`, never markdown links.
-- YAML frontmatter is mandatory on every permanent note.
-- Filenames in `kebab-case`: `auth-flow.md`, not `Auth Flow.md`.
+- Wikilinks only for internal notes: `[[note-name]]`.
+- YAML frontmatter mandatory on every permanent note.
+- Filenames in `kebab-case`.
 - One concept per permanent note (atomicity).
-- Minimum 2 wikilinks per note (dense linking).
-- Always tag notes with the group they belong to (`#arc` / `#truenode` / `#cinesynth`), plus any topic tags.
+- Minimum 2 wikilinks per note.
+- Tag notes with their group (`#<group>`) plus topic tags.
 
 ### Standard frontmatter
 
 ```yaml
 ---
 title: Note Name
-group: arc            # arc | truenode | cinesynth | shared
-tags: [arc, topic]
+group: <group>          # must match a line in ~/vault/.groups, or "shared"
+tags: [<group>, topic]
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-status: active
-type: permanent       # permanent | fleeting | log | chat
+status: active          # active | superseded | archived
 ---
 ```
 
-### Never do
-- Don't delete notes without asking.
-- Don't use markdown links for internal notes (use wikilinks).
-- Don't create notes without frontmatter.
-- Don't change the group folder structure without documenting it in `architecture/`.
+### Folder semantics
 
-## Session commands
+| Folder               | Purpose                                              |
+|----------------------|------------------------------------------------------|
+| `<group>/architecture/` | Long-lived decisions, diagrams, system maps       |
+| `<group>/features/`     | Per-feature specs, design notes                   |
+| `<group>/data/`         | Schemas, datasets, reference tables               |
+| `<group>/pipeline/`     | Build / deploy / CI notes                         |
+| `<group>/logs/`         | Dated session logs (one per `/save`)              |
+| `permanent/`            | Cross-group atomic notes                          |
+| `inbox/`                | Raw captures, unsorted                            |
+| `fleeting/`             | Scratch, low-commitment                           |
+| `references/`           | External material (papers, docs)                  |
+| `chats/code/`           | Imported Claude Code conversations                |
+| `chats/web/`            | Imported Claude Web conversations                 |
+| `graphify/<group>/`     | Codebase graphs, per repo                         |
 
-### `/resume`
-1. Detect the current project group (from repo `CLAUDE.md` `group:` field, or ask).
-2. Read the 3 most recent session logs in `~/vault/<group>/logs/`.
-3. Read `~/vault/<group>/architecture/decisions.md` if it exists.
-4. Read `~/vault/<group>/_MOC.md` to orient on structure.
-5. Summarise: current state, open TODOs, last commit, next step.
+### MOC (Map of Contents)
 
-### `/save`
-1. Write `~/vault/<group>/logs/YYYY-MM-DD-<slug>.md` with:
-   - What was done (bullets)
-   - Decisions made (bullets, link to or create notes in `architecture/`)
-   - Open items / next steps
-   - Wikilinks to every note touched or created
-2. Add the log filename to `~/vault/<group>/_MOC.md` under a "Recent logs" section.
-3. If the current repo is a git repo, `git add . && git commit -m "session: <slug>"`.
-4. If `~/vault` is a git repo, `cd ~/vault && git add . && git commit -m "memory: <slug>" && git push`.
+Each `<group>/_MOC.md` is the index page for that group. It auto-grows via `/save`, which prepends new logs under "Recent logs". Architecture and feature notes should be hand-linked under their H2 sections.
 
-### `/promote <note-name>`
-Move a note from `inbox/` or `fleeting/` into `permanent/` (or the right group folder), add full frontmatter, and ensure it has at least 2 wikilinks.
+## Semantic search
 
-## Chat import pipeline
-- `chats/code/` → imported Claude Code conversations.
-- `chats/web/` → imported Claude Web/App conversations.
-- Every imported chat has `type: chat` + `chat-import` tag.
-- The importer auto‑tags with `#arc` / `#truenode` / `#cinesynth` when matching keywords appear.
+`/recall <query>` (defined in `~/.claude/CLAUDE.md`) runs vector search over every `.md` file in this vault. The index lives at `~/vault/.index.db` and is gitignored — each device rebuilds it on first use.
 
-Graph view filters:
-- `tag:chat-import` → chats only
-- `-path:chats` → hide chats
-- `tag:arc` / `tag:truenode` / `tag:cinesynth` → one group at a time
+Keep notes **dense and atomic** so embeddings discriminate well. A single 3KB note on one topic retrieves better than a 20KB note covering five.
 
-## Graphify (codebase maps)
-- `graphify/arc/<repo>/` → graph for one Arc repo.
-- `graphify/truenode/<repo>/` → same for TrueNode.
-- `graphify/cinesynth/<repo>/` → same for CineSynth.
-- Graph notes are auto‑generated — never edit them by hand.
+## Redaction (non-negotiable)
 
-Graph view:
-- `path:graphify` → only code nodes
-- `-path:graphify` → only human‑written notes
+This vault is a git repo pushed to a remote. Even if the remote is private, assume plaintext exposure.
+
+- No secrets in notes — ever.
+- If you see a secret, replace with `[REDACTED]` and tell the user to rotate.
+- `.gitignore` ships with the index DB and Obsidian workspace state excluded — don't remove those lines.
