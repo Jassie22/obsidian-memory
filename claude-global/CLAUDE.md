@@ -32,6 +32,18 @@ Expose the resolved group as `$GROUP` for the rest of this document.
    - Recent decisions worth remembering.
    - Suggested next step.
 
+### Auto‑commit & push (memory-system files)
+
+After **any** change to `~/vault/` or `~/obsidian-memory/`, immediately:
+
+```bash
+git add -A && git commit -m "<type>: <short msg>" && git push
+```
+
+This applies to every edit (new log, MOC update, template tweak, setup.sh change, global `CLAUDE.md` edit, etc.) — not just `/save`. The goal is that memory never diverges between devices. If the remote rejects (non‑fast‑forward), pull/rebase and retry; do not force‑push.
+
+For **code repos** (Arc / TrueNode / CineSynth etc.), keep the normal workflow — commit when a logical change is done, push only when the user asks.
+
 ### `/save`
 1. Create `~/vault/$GROUP/logs/YYYY-MM-DD-<slug>.md` with frontmatter:
    ```yaml
@@ -55,13 +67,31 @@ Expose the resolved group as `$GROUP` for the rest of this document.
 
 ## Context navigation (Graphify) — when inside a code repo
 
-If `graphify-out/graph.json` exists, use it **before** reading source files:
+At session start, check whether Graphify is set up for the current repo by testing for `graphify-out/graph.json` (or a matching folder under `~/vault/graphify/$GROUP/<repo-name>/`).
+
+**If the graph exists** — use it **before** reading source files:
 
 1. First layer → `graphify-out/graph.json` / `graphify-out/wiki/index.md`.
 2. Second layer → `~/vault/$GROUP/` for decisions & context.
 3. Third layer → raw source files, only when editing or when layers 1–2 don't answer the question.
 
 Never re‑read the entire codebase if the graph already has the information.
+
+**If the graph does NOT exist** — tell the user once, early in the session:
+
+> "Graphify isn't set up for this repo yet. Want me to wire it up? It builds a codebase knowledge graph so I can navigate the repo without re‑reading every file."
+
+If they agree, run the setup:
+
+1. Confirm `graphify` is on PATH (`command -v graphify`). If missing, install: `pip install --user --upgrade graphifyy` and remind the user to add `%APPDATA%\Python\Python313\Scripts` to PATH on Windows.
+2. Build the graph into the shared vault so it's visible in Obsidian:
+   ```bash
+   graphify . --obsidian --obsidian-dir ~/vault/graphify/$GROUP/<repo-name>
+   ```
+3. Offer to install the git hook for auto‑rebuild on commit: `graphify hook install`.
+4. Offer `graphify . --watch` in a background terminal during active dev.
+
+After setup, proceed with the 3‑layer query rule above.
 
 ## Writing rules inside the vault
 
@@ -76,3 +106,14 @@ Never re‑read the entire codebase if the graph already has the information.
 - Never delete vault notes without asking.
 - Never force‑push the vault repo.
 - Never run destructive git commands in the current repo without confirmation.
+
+### Credential hygiene (vault + logs + graph)
+
+The vault, session logs, chat imports, and Graphify output are all plaintext and may be pushed to a remote git repo — treat them as public.
+
+- **Never** write API keys, tokens, passwords, private URLs, `.env` contents, connection strings, cookies, session IDs, JWTs, or any secret the user pastes into a chat to a vault note, log, MOC, or any file under `~/vault/`.
+- When `/save` runs, scan the draft log for anything matching secret patterns (`sk-…`, `ghp_…`, `AKIA…`, `Bearer …`, `password=`, `-----BEGIN …PRIVATE KEY-----`, long hex/base64 blobs) and redact with `[REDACTED]` before writing.
+- If a chat export (`~/claude-exports/`) contains secrets, redact them in the resulting Obsidian note — store the fact that a secret existed, not the secret itself.
+- Graphify: before running, check `.gitignore` / `.env*` patterns and pass `--exclude` for any file that may contain secrets. Never commit `graphify-out/` blobs that include resolved env values.
+- If the vault is a git repo, verify it is **private** before the first push. Refuse to `git push` the vault if the remote is public.
+- If a secret is discovered already in the vault, stop, tell the user, and help rotate + purge (git filter-repo / BFG) — don't silently delete.
