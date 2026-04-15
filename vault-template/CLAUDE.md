@@ -54,6 +54,12 @@ status: active          # active | superseded | archived
 
 Use **`tags:`** for categorisation (`decision`, `gotcha`, `feature`, `reference`, etc.). Tags are first-class in Obsidian's search/graph; `type:` isn't, and inventing values pollutes the namespace.
 
+### Dating rule
+
+- `created:` is set once when the note is first written. **Never edit it.**
+- `updated:` must be bumped to today's date on **every** edit — content change, frontmatter change, wikilink addition, anything. If Claude edits a note and doesn't bump `updated:`, that's a bug.
+- `status: superseded` → also add `updated:` + `superseded-by: [[new-note]]`. The old `created:` still stays untouched.
+
 ### Folder semantics
 
 | Folder               | Purpose                                              |
