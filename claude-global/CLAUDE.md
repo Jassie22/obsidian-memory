@@ -20,6 +20,21 @@ At the start of every session, determine the active group:
 
 Expose the resolved group as `$GROUP` for the rest of this document.
 
+## Session-start sync (auto-pull)
+
+At the **start of every session**, before running any memory command or answering the user, run a fast sync so the local vault + memory repo match the remote:
+
+```bash
+( cd ~/vault          && git pull --ff-only --quiet 2>/dev/null ) || true
+( cd ~/obsidian-memory && git pull --ff-only --quiet 2>/dev/null ) || true
+```
+
+Rules:
+- **Silent on success**, one‑line note on failure (never block the session — just tell the user).
+- **Only once per day per repo** — stash a timestamp in `~/.claude/.last-pull` and skip if the last pull was <12h ago, so you don't thrash on every `claude` invocation.
+- If `git pull` reports merge conflicts, stop and surface them — never auto‑resolve vault conflicts, they represent genuine edits from another device.
+- If `~/.claude/CLAUDE.md` itself changed after the pull of `~/obsidian-memory`, tell the user to restart the session so the new rules load.
+
 ## Memory commands (available in every project)
 
 ### `/resume`
