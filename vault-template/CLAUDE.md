@@ -47,6 +47,13 @@ status: active          # active | superseded | archived
 ---
 ```
 
+**Do not add a `type:` field** to arbitrary notes. `type:` is reserved for mechanical values that scripts branch on:
+
+- `type: log` — set by `/save` on dated session logs.
+- `type: moc` — set by `setup.sh` on group MOCs.
+
+Use **`tags:`** for categorisation (`decision`, `gotcha`, `feature`, `reference`, etc.). Tags are first-class in Obsidian's search/graph; `type:` isn't, and inventing values pollutes the namespace.
+
 ### Folder semantics
 
 | Folder               | Purpose                                              |
