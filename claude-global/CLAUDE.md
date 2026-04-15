@@ -84,12 +84,14 @@ Never re‑read the entire codebase if the graph already has the information.
 If they agree, run the setup:
 
 1. Confirm `graphify` is on PATH (`command -v graphify`). If missing, install: `pip install --user --upgrade graphifyy` and remind the user to add `%APPDATA%\Python\Python313\Scripts` to PATH on Windows.
-2. Build the graph into the shared vault so it's visible in Obsidian:
+2. Build the graph (writes `graphify-out/graph.json` + `GRAPH_REPORT.md` in the repo):
    ```bash
-   graphify . --obsidian --obsidian-dir ~/vault/graphify/$GROUP/<repo-name>
+   graphify update .
    ```
-3. Offer to install the git hook for auto‑rebuild on commit: `graphify hook install`.
-4. Offer `graphify . --watch` in a background terminal during active dev.
+3. Add `graphify-out/` to `.gitignore` — it's build output, not source.
+4. Offer to install the git hook for auto‑rebuild on commit: `graphify hook install`.
+5. Offer `graphify watch .` in a background terminal during active dev.
+6. To mirror the graph into Obsidian for cross‑repo browsing, symlink (or copy on each rebuild): `~/vault/graphify/$GROUP/<repo-name>/` → `<repo>/graphify-out/`.
 
 After setup, proceed with the 3‑layer query rule above.
 
