@@ -121,6 +121,10 @@ Agent(
 )
 ```
 
+### Enforcement
+
+A `UserPromptSubmit` hook at `~/scripts/vault-note-trigger-reminder.sh` (wired in `~/.claude/settings.json`) injects the trigger checklist as a system-reminder on every user turn. This makes the check structural rather than relying on Claude remembering. If the script is renamed/moved, update the hook path in `settings.json` too — there's no version control on `~/scripts/` yet.
+
 ## Context navigation (Graphify) — inside a code repo
 
 At session start, check for `graphify-out/graph.json`.
