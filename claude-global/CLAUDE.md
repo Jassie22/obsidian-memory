@@ -69,7 +69,7 @@ For **code repos**: normal workflow — commit when a logical change is done, pu
    Sections: Done · Decisions · Open items · Next step · wikilinks to every note touched.
 2. Prepend the log under "Recent logs" in `~/vault/$GROUP/_MOC.md`.
 3. Redact secrets per Credential hygiene rules.
-4. Run `python ~/scripts/vault_search.py index` to refresh the semantic index.
+4. Run `~/scripts/vault_search.py index` to refresh the semantic index.
 5. If the current repo is a git repo: `git add -A && git commit -m "session: <slug>"` (no push unless asked).
 6. Auto-commit + push the vault.
 
@@ -79,7 +79,7 @@ Move a note from `~/vault/inbox/` or `~/vault/fleeting/` into `~/vault/permanent
 ### `/recall <query>`
 Semantic retrieval over the vault. Backed by `~/scripts/vault_search.py` (fastembed + sqlite-vec, BGE-large by default, ~3s cold).
 
-1. Run: `python ~/scripts/vault_search.py search "<query>"`
+1. Run: `~/scripts/vault_search.py search "<query>"`
 2. Read the top 3 hit files. Summarise with wikilinks — don't dump raw contents.
 3. If all distances >1.2: "no strong matches in vault" (don't confabulate).
 4. If the index looks stale (any note mtime newer than `.index.db` mtime), run `index` first.
@@ -103,7 +103,7 @@ Do NOT write for: ephemeral debugging, trivial fixes visible in git, info alread
 
 ### Update-vs-create (dedupe before writing)
 
-1. Run `python ~/scripts/vault_search.py find-similar "<proposed title + summary>"` — returns top-3.
+1. Run `~/scripts/vault_search.py find-similar "<proposed title + summary>"` — returns top-3.
 2. Top distance <0.7 → **update** that note (append dated subsection or edit in place).
 3. 0.7-1.0 → read the candidate; same topic → update; related → create new + cross-wikilink.
 4. All >1.0 → create new.

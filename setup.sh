@@ -21,7 +21,7 @@ EXPORT_DIR="$HOME/claude-exports"
 INSTALL_PIP=1
 INSTALL_EMBED=1
 INSTALL_CRON=0
-GROUPS=""
+MEM_GROUPS=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,7 +29,7 @@ while [[ $# -gt 0 ]]; do
     --no-embed) INSTALL_EMBED=0 ;;
     --cron)     INSTALL_CRON=1 ;;
     --vault)    VAULT_DIR="$2"; shift ;;
-    --groups)   GROUPS="$2"; shift ;;
+    --groups)   MEM_GROUPS="$2"; shift ;;
     -h|--help)
       grep '^# ' "$0" | sed 's/^# //'
       exit 0
@@ -44,24 +44,24 @@ ok()   { printf '\033[1;32m ok\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m  !\033[0m %s\n' "$*"; }
 
 # 0. Groups
-if [[ -z "$GROUPS" ]]; then
+if [[ -z "$MEM_GROUPS" ]]; then
   if [[ -f "$VAULT_DIR/.groups" ]]; then
-    GROUPS="$(tr '\n' ',' < "$VAULT_DIR/.groups")"
-    GROUPS="${GROUPS%,}"
-    ok "reusing existing groups: $GROUPS"
+    MEM_GROUPS="$(tr '\n' ',' < "$VAULT_DIR/.groups")"
+    MEM_GROUPS="${MEM_GROUPS%,}"
+    ok "reusing existing groups: $MEM_GROUPS"
   else
-    read -rp "Project groups (comma-separated, e.g. work,personal,research): " GROUPS
-    [[ -z "$GROUPS" ]] && GROUPS="work,personal"
+    read -rp "Project groups (comma-separated, e.g. work,personal,research): " MEM_GROUPS
+    [[ -z "$MEM_GROUPS" ]] && MEM_GROUPS="work,personal"
   fi
 fi
-IFS=',' read -ra GROUP_ARR <<< "$GROUPS"
+IFS=',' read -ra MEM_GROUP_ARR < <(printf '%s' "$MEM_GROUPS")
 
 # 1. Vault tree
 say "Creating vault at $VAULT_DIR"
 mkdir -p "$VAULT_DIR"/{permanent,inbox,fleeting,templates,references,logs}
 mkdir -p "$VAULT_DIR"/chats/{code,web}
 : > "$VAULT_DIR/.groups"
-for g in "${GROUP_ARR[@]}"; do
+for g in "${MEM_GROUP_ARR[@]}"; do
   g="$(echo "$g" | xargs)"
   [[ -z "$g" ]] && continue
   echo "$g" >> "$VAULT_DIR/.groups"
