@@ -29,9 +29,15 @@ Portable "source of truth" for a Claude Code memory setup. Clone on any machine,
 | Piece | Purpose |
 |-------|---------|
 | `claude-global/CLAUDE.md` | Installed to `~/.claude/CLAUDE.md` — auto-loads in **every** Claude Code session on the machine. |
+| `claude-global/settings.json` | Hook wiring — merged into `~/.claude/settings.json` to enable auto-pull, auto-commit, proactive-note reminder, and secret guard. |
 | `vault-template/` | Boilerplate for the Obsidian vault (folder tree, rules, note template, `.gitignore`). |
 | `projects/example-group/CLAUDE.md` | Drop into any repo to route memory into the right group. |
 | `scripts/vault_search.py` | Semantic search (fastembed + sqlite-vec) powering `/recall`. |
+| `scripts/vault_rebuild_mocs.py` | Regenerates `_MOC.md` for every group from frontmatter. |
+| `scripts/vault-sync-pull.sh` | SessionStart hook — `git pull` vault + repo, 12h-throttled. |
+| `scripts/vault-sync-commit.sh` | PostToolUse hook — auto-commit+push when a tool edits a file under `~/vault/`. |
+| `scripts/vault-note-trigger-reminder.sh` | UserPromptSubmit hook — injects the proactive-note trigger checklist every turn. |
+| `scripts/vault-secret-guard.sh` | PreToolUse hook — blocks Write/Edit to the vault if a secret pattern is detected. |
 | `scripts/claude_to_obsidian.py` | Turns Claude chat exports into tagged, wikilinked Obsidian notes. |
 | `scripts/sync_claude_obsidian.sh` | Cron-friendly daily sync of Code + Web chats into the vault. |
 | `setup.sh` | Idempotent bootstrap for a fresh machine. |

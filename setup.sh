@@ -116,11 +116,29 @@ ok "memory commands loaded in every Claude Code session on this machine"
 # 4. Scripts
 say "Installing scripts to $SCRIPTS_DIR"
 mkdir -p "$SCRIPTS_DIR" "$EXPORT_DIR"/{code,web}
-cp "$REPO_DIR/scripts/claude_to_obsidian.py"   "$SCRIPTS_DIR/"
-cp "$REPO_DIR/scripts/sync_claude_obsidian.sh" "$SCRIPTS_DIR/"
-cp "$REPO_DIR/scripts/vault_search.py"         "$SCRIPTS_DIR/"
+cp "$REPO_DIR/scripts/"*.py "$SCRIPTS_DIR/"
+cp "$REPO_DIR/scripts/"*.sh "$SCRIPTS_DIR/"
 chmod +x "$SCRIPTS_DIR"/*.sh "$SCRIPTS_DIR"/*.py 2>/dev/null || true
-ok "scripts installed"
+ok "scripts installed ($(ls "$REPO_DIR/scripts" | wc -l) files)"
+
+# 4b. Hooks in ~/.claude/settings.json
+say "Wiring hooks into $CLAUDE_DIR/settings.json"
+if command -v jq >/dev/null 2>&1; then
+  target="$CLAUDE_DIR/settings.json"
+  src="$REPO_DIR/claude-global/settings.json"
+  if [[ -f "$target" ]]; then
+    cp "$target" "$target.obsidian-memory.bak"
+    jq -s '.[0].hooks = .[1].hooks | .[0]' "$target" "$src" > "$target.tmp" \
+      && mv "$target.tmp" "$target" \
+      && ok "merged hooks into existing settings.json (backup: settings.json.obsidian-memory.bak)"
+  else
+    cp "$src" "$target"
+    ok "installed fresh settings.json with hooks"
+  fi
+  warn "Restart Claude Code for hook changes to take effect"
+else
+  warn "jq not installed — skipping settings.json merge. Install jq and re-run, or copy hooks block manually from claude-global/settings.json"
+fi
 
 # 5. pip installs
 PIP=""
