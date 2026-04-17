@@ -73,6 +73,30 @@ For **code repos**: normal workflow — commit when a logical change is done, pu
 5. If the current repo is a git repo: `git add -A && git commit -m "session: <slug>"` (no push unless asked).
 6. Auto-commit + push the vault.
 
+### `/capture <free-form text>`
+Quick-drop a thought into `~/vault/inbox/` without ceremony. Use when the user wants to stash something fast — "capture: Charlie prefers thursday reviews", "/capture the Stripe webhook retries 3x before 4xx".
+
+1. Slug = first 5-6 meaningful words, kebab-case.
+2. Write `~/vault/inbox/YYYY-MM-DD-<slug>.md`:
+   ```yaml
+   ---
+   title: <slug titleised>
+   description: <one-sentence summary of the captured text>
+   group: $GROUP        # or "shared" if no group resolved
+   tags: [$GROUP, inbox, capture]
+   created: YYYY-MM-DD
+   updated: YYYY-MM-DD
+   status: inbox
+   ---
+   ```
+   Body = the user's text verbatim, then a `## Context` section with what was happening when it was captured (one line).
+3. Redact secrets per Credential hygiene rules.
+4. Run `~/scripts/vault_search.py index` (async / backgrounded is fine).
+5. Auto-commit + push the vault.
+6. Reply with ONE line: `captured → inbox/<slug>.md`. No summary, no follow-up questions.
+
+Distinct from proactive note-writing: `/capture` is **user-triggered**, lands in `inbox/` regardless of triggers, and never dedupes. Use `/promote` later to move it into a group folder with proper wikilinks.
+
 ### `/promote <note-name>`
 Move a note from `~/vault/inbox/` or `~/vault/fleeting/` into `~/vault/permanent/` or the right group folder. Ensure frontmatter + at least 2 wikilinks.
 

@@ -120,6 +120,7 @@ Defined in `claude-global/CLAUDE.md` and available in every Claude Code session:
 | `/resume` | Load the 3 most recent logs + architecture for the current group; summarise state. |
 | `/save` | Write a dated session log; update MOC; re-index; commit + push the vault. |
 | `/recall <query>` | Semantic search across the whole vault; read top-3 hits. |
+| `/capture <text>` | Quick-drop a thought into `inbox/` — user-triggered, no ceremony, no dedupe. |
 | `/promote <note>` | Lift an inbox/fleeting note into `permanent/` with proper frontmatter. |
 
 Claude also **proactively writes notes** (background, via subagent) when it encounters decisions, gotchas, external context, or corrections — and dedupes against existing notes using `vault_search.py find-similar` before creating.
