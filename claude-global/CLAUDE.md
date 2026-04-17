@@ -192,6 +192,7 @@ The vault, session logs, chat imports, and Graphify output are plaintext — tre
 
 - **Never** write API keys, tokens, passwords, private URLs, `.env` contents, connection strings, cookies, session IDs, JWTs, or any secret into vault notes / logs / MOCs.
 - On `/save` and proactive note-writes, scan for secret patterns (`sk-…`, `ghp_…`, `AKIA…`, `Bearer …`, `password=`, `-----BEGIN …PRIVATE KEY-----`, long hex/base64 blobs); replace with `[REDACTED]`.
+- A `PreToolUse` hook (`~/scripts/vault-secret-guard.sh`) enforces this structurally — any Write/Edit into `~/vault/` is blocked if a secret pattern is detected. On deny: redact and retry. Don't override unless you've told the user.
 - Redact secrets in chat exports before they land in `~/vault/chats/`.
 - Graphify: before running, check `.gitignore` / `.env*` patterns; `--exclude` secret-carrying files.
 - Verify the vault's git remote is **private** before first push. Refuse if public.
