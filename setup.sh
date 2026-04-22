@@ -58,6 +58,12 @@ if [[ -z "$MEM_GROUPS" ]]; then
     MEM_GROUPS="${MEM_GROUPS%,}"
     ok "reusing existing groups: $MEM_GROUPS"
   else
+    template="$REPO_DIR/vault-template/.groups.template"
+    if [[ -f "$template" ]]; then
+      echo "Groups live in ~/vault/.groups — one slug per line. Examples from template:"
+      grep -v '^#' "$template" | grep -v '^$' | sed 's/^/  /'
+      echo "(none shown if the template has only commented examples)"
+    fi
     read -rp "Project groups (comma-separated, e.g. work,personal,research): " MEM_GROUPS
     [[ -z "$MEM_GROUPS" ]] && MEM_GROUPS="work,personal"
   fi
@@ -119,6 +125,16 @@ if [[ ! -f "$VAULT_DIR/.gitignore" && -f "$REPO_DIR/vault-template/.gitignore" ]
   ok "installed vault .gitignore"
 fi
 
+# 2b. Rules system — ~/vault/rules/
+if [[ ! -d "$VAULT_DIR/rules" ]]; then
+  run "mkdir -p \"$VAULT_DIR/rules\""
+  run "cp \"$REPO_DIR/vault-template/rules/\"*.md \"$VAULT_DIR/rules/\""
+  run "cp \"$REPO_DIR/vault-template/rules/.config.example.yml\" \"$VAULT_DIR/rules/.config.yml\""
+  ok "installed rules scaffold into $VAULT_DIR/rules (edit .config.yml to tune reminder interval)"
+else
+  warn "$VAULT_DIR/rules already exists — leaving rule files alone. Update .config.yml manually if needed."
+fi
+
 # 3. Global Claude Code instructions
 say "Installing global ~/.claude/CLAUDE.md"
 run "mkdir -p \"$CLAUDE_DIR\""
@@ -162,6 +178,11 @@ if command -v jq >/dev/null 2>&1; then
   [[ $DRY_RUN -eq 0 ]] && warn "Restart Claude Code for hook changes to take effect"
 else
   warn "jq not installed — skipping settings.json merge. Install jq and re-run, or copy hooks block manually from claude-global/settings.json"
+fi
+
+# 4c. Seed ~/vault/rules.md
+if [[ -x "$SCRIPTS_DIR/rules_rebuild.py" ]]; then
+  run "VAULT_DIR=\"$VAULT_DIR\" \"$SCRIPTS_DIR/rules_rebuild.py\" || true"
 fi
 
 # 5. pip installs
