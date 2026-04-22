@@ -188,7 +188,15 @@ Full setup details in the repo `README.md`.
 - `triage issues labelled 'bug'` → reads them, proposes priorities and duplicates.
 - `what's red on main right now` → checks CI.
 
-**Setup note.** Hosted OAuth can be flaky. Easiest route: a Personal Access Token over HTTP — see the repo's `github-mcp-pat-workaround` note.
+**Setup note — Claude Code's default OAuth flow for the GitHub MCP fails** with `does not support dynamic client registration`. Skip OAuth entirely and use a PAT over HTTP:
+
+```bash
+claude mcp remove github
+claude mcp add -s user --transport http github https://api.githubcopilot.com/mcp/ \
+  --header "Authorization: Bearer ghp_YOUR_TOKEN"
+```
+
+Required PAT scopes: `repo`, `read:org`. Default expiry 90 days — diarise renewal.
 
 **Takeaway:** bring GitHub into the editor, not the other way around.
 

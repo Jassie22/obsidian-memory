@@ -167,8 +167,8 @@ fi
 # 6. Cron
 if [[ $INSTALL_CRON -eq 1 ]]; then
   if command -v crontab >/dev/null 2>&1; then
-    say "Installing daily chat-sync cron (22:00)"
-    line="0 22 * * * $SCRIPTS_DIR/sync_claude_obsidian.sh"
+    say "Installing daily chat-sync cron (20:00)"
+    line="0 20 * * * $SCRIPTS_DIR/sync_claude_obsidian.sh"
     ( crontab -l 2>/dev/null | grep -v -F "$SCRIPTS_DIR/sync_claude_obsidian.sh" ; echo "$line" ) | crontab -
     ok "cron installed"
   else

@@ -1,4 +1,4 @@
-#!/home/jas/.venvs/vault/bin/python3
+#!/usr/bin/env python3
 """
 Rebuild every _MOC.md from note frontmatter + filesystem state.
 
