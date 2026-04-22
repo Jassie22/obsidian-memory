@@ -1,4 +1,8 @@
 {
+  "statusLine": {
+    "type": "command",
+    "command": "~/scripts/rules-statusline.sh"
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -19,6 +23,11 @@
             "type": "command",
             "command": "~/scripts/vault-sync-commit.sh",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "~/scripts/rules_rebuild_if_rule_changed.sh",
+            "timeout": 10
           }
         ]
       }
@@ -29,6 +38,11 @@
           {
             "type": "command",
             "command": "~/scripts/vault-note-trigger-reminder.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/scripts/rules-reminder.sh",
             "timeout": 5
           }
         ]
@@ -41,6 +55,21 @@
           {
             "type": "command",
             "command": "~/scripts/vault-secret-guard.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/scripts/rules-preguard.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/scripts/rules-preguard.sh",
             "timeout": 5
           }
         ]
