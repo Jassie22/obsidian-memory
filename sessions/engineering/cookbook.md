@@ -4,7 +4,7 @@ audience: Arc engineers
 kind: living-cookbook
 started: 2026-04-22
 updated: 2026-04-22
-current_version: 0.1
+current_version: 0.2
 author: Jas
 ---
 
@@ -62,7 +62,7 @@ The eight entries below, in order:
 
 | Date | Session | New / updated content | Duration |
 |---|---|---|---|
-| 2026-04-24 | **Session 1 — first run** | Overview + entries 1–8 below (initial set) | ~25 min |
+| 2026-04-27 (Mon 13:00) | **Session 1 — first run** | Overview + entries 1–8 below (initial set) | ~25 min |
 
 ---
 
@@ -89,7 +89,7 @@ Full setup details in the repo `README.md`.
 
 ## 1. Give Claude a brain that lasts longer than one session
 
-*First covered: 2026-04-24 · Headline topic*
+*First covered: 2026-04-27 · Headline topic*
 
 **The problem.** Every new chat starts from zero. You re-explain what Charlie decided in the meeting, why you picked n8n over Netlify Functions, what the three agent prompts actually look like.
 
@@ -119,7 +119,7 @@ Full setup details in the repo `README.md`.
 
 ## 2. Run it later / overnight
 
-*First covered: 2026-04-24*
+*First covered: 2026-04-27*
 
 **The problem.** You want to kick off a long plan, but you're mid-day in meetings. Or out of credits. Or you'd like a weekly "what changed in staging" summary without remembering to ask.
 
@@ -142,7 +142,7 @@ Full setup details in the repo `README.md`.
 
 ## 3. Claude Code, not a web chat
 
-*First covered: 2026-04-24*
+*First covered: 2026-04-27*
 
 **The problem.** Paste a file into chat.ai → Claude suggests a change → paste back into editor → lose surrounding context. Repeat 10 times. This is the 2× productivity ceiling.
 
@@ -158,7 +158,7 @@ Full setup details in the repo `README.md`.
 
 ## 4. Figma → code (Figma MCP)
 
-*First covered: 2026-04-24*
+*First covered: 2026-04-27*
 
 **The problem.** Translating a design to a component takes 20 minutes of eyeballing, and you still miss three tokens.
 
@@ -178,7 +178,7 @@ Full setup details in the repo `README.md`.
 
 ## 5. GitHub-native PR work (GitHub MCP)
 
-*First covered: 2026-04-24*
+*First covered: 2026-04-27*
 
 **The problem.** PR review = tab-switching between editor and github.com. Context lost each time.
 
@@ -204,7 +204,7 @@ Required PAT scopes: `repo`, `read:org`. Default expiry 90 days — diarise rene
 
 ## 6. Subagents for parallel work
 
-*First covered: 2026-04-24*
+*First covered: 2026-04-27*
 
 **The problem.** Before you can make a change you need to understand the codebase. That's half a day of reading. You can't usefully parallelise it in your head.
 
@@ -223,7 +223,7 @@ Required PAT scopes: `repo`, `read:org`. Default expiry 90 days — diarise rene
 
 ## 7. Skills for repetitive patterns
 
-*First covered: 2026-04-24*
+*First covered: 2026-04-27*
 
 **The problem.** You keep retyping the same instructions: "write tests first," "match existing conventions," "commit with a conventional prefix."
 
@@ -246,7 +246,7 @@ Required PAT scopes: `repo`, `read:org`. Default expiry 90 days — diarise rene
 
 ## 8. Cursor for inline fixes
 
-*First covered: 2026-04-24*
+*First covered: 2026-04-27*
 
 **The problem.** Full Claude Code sessions have overhead. Sometimes you just want to fix the one typo or rename the one variable, in-editor.
 
@@ -273,4 +273,5 @@ Required PAT scopes: `repo`, `read:org`. Default expiry 90 days — diarise rene
 
 ## Revision log
 
+- **2026-04-22 — v0.2** — Session moved Fri 2026-04-24 → **Mon 2026-04-27 13:00**. All "First covered" tags and the Sessions log row updated. Content otherwise unchanged. Inlined the GitHub-MCP PAT workaround (previously a dead reference to a vault-only note).
 - **2026-04-22 — v0.1** — First draft ahead of the 2026-04-24 session. Overview added at top: why AI-for-engineering matters, landscape table (Claude Code / MCPs / Skills / Memory / Scheduling / Cursor), what's in the session, how to use the doc. Headline entry: Obsidian memory (~5 min airtime). Seven follow-ups at ~2 min each: scheduled Claude, Claude Code workflow, Figma MCP, GitHub MCP, subagents, skills, Cursor as companion. Filename switched from `2026-04-22-cookbook.md` → `cookbook.md` to signal this is an evergreen living doc — new content will be appended under new dates rather than creating new files.

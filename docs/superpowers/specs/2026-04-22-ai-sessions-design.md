@@ -3,8 +3,8 @@
 **Date:** 2026-04-22
 **Status:** Draft — awaiting user review
 **Author:** Jas (with Claude)
-**Target delivery:** 2026-04-24 (Fri)
-**Version:** 0.2
+**Target delivery:** 2026-04-27 (Mon) 13:00
+**Version:** 0.3
 
 > This document is expected to change. Bump **Version** and append to the `## Revision log` at the bottom on every update. Every section that contains the cookbook content is dated inline so it's obvious when an item was last refreshed.
 
@@ -12,7 +12,7 @@
 
 ## Problem
 
-Henry (Arc CTO) asked Jas to run two short sessions on "how to use AI" for the Arc team on 2026-04-24. One for software engineering, one for general business use. Jas will present both and hand over this repo as the engineering leave-behind.
+Henry (Arc CTO) asked Jas to run two short sessions on "how to use AI" for the Arc team (originally scheduled 2026-04-24, moved to **Mon 2026-04-27 at 13:00**). One for software engineering, one for general business use. Jas will present both and hand over this repo as the engineering leave-behind.
 
 Three concrete constraints shape the work:
 
@@ -170,5 +170,6 @@ No changes to the existing memory system, scripts, or hooks. Session content is 
 
 ## Revision log
 
+- **2026-04-22 — v0.3** — Session rescheduled Fri 2026-04-24 → **Mon 2026-04-27 13:00**. All forward-looking references in the spec, cookbook, and business README updated. Historical revision-log entries left intact. Branch strategy: user will merge `rules-system` to `main` later; not blocking.
 - **2026-04-22 — v0.2** — Promoted the Obsidian-memory system to engineering use case 1 ("give Claude a brain that lasts longer than one session") with 2× airtime — it's the actual repo being handed over, so it earns the headline slot. Other eng use cases renumbered 2–8. Business use case 1 (Claude Projects) reframed as the non-engineer parallel to persistent memory. Removed the "hand off to writing-plans" next-step — user prefers spec iteration over formal plans.
 - **2026-04-22 — v0.1** — Initial draft after scoping conversation on 2026-04-22. Audience (B), goals (eng=leverage, biz=leverage+evaluation), duration (~25 min each), format (discussion + handout, no demo), scope (Claude-primary), content outline (8 use cases each). Open questions not yet resolved.
