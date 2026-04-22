@@ -43,6 +43,13 @@ done
 say()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m ok\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m  !\033[0m %s\n' "$*"; }
+run() {
+  if [[ $DRY_RUN -eq 1 ]]; then
+    printf '\033[1;35m dry\033[0m %s\n' "$*"
+  else
+    eval "$@"
+  fi
+}
 
 # 0. Groups
 if [[ -z "$MEM_GROUPS" ]]; then
@@ -59,67 +66,75 @@ IFS=',' read -ra MEM_GROUP_ARR <<< "$MEM_GROUPS"
 
 # 1. Vault tree
 say "Creating vault at $VAULT_DIR"
-mkdir -p "$VAULT_DIR"/{permanent,inbox,fleeting,templates,references,logs}
-mkdir -p "$VAULT_DIR"/chats/{code,web}
-: > "$VAULT_DIR/.groups"
+run "mkdir -p \"$VAULT_DIR\"/{permanent,inbox,fleeting,templates,references,logs}"
+run "mkdir -p \"$VAULT_DIR\"/chats/{code,web}"
+run ": > \"$VAULT_DIR/.groups\""
 for g in "${MEM_GROUP_ARR[@]}"; do
   g="$(echo "$g" | xargs)"
   [[ -z "$g" ]] && continue
-  echo "$g" >> "$VAULT_DIR/.groups"
-  mkdir -p "$VAULT_DIR/$g"/{architecture,features,data,pipeline,logs}
-  mkdir -p "$VAULT_DIR/graphify/$g"
+  run "printf '%s\n' \"$g\" >> \"$VAULT_DIR/.groups\""
+  run "mkdir -p \"$VAULT_DIR/$g\"/{architecture,features,data,pipeline,logs}"
+  run "mkdir -p \"$VAULT_DIR/graphify/$g\""
   moc="$VAULT_DIR/$g/_MOC.md"
   if [[ ! -f "$moc" ]]; then
-    cap="$(printf '%s' "${g:0:1}" | tr '[:lower:]' '[:upper:]')${g:1}"
-    {
-      echo "---"
-      echo "title: $cap — Map of Contents"
-      echo "group: $g"
-      echo "tags: [$g, moc]"
-      echo "type: moc"
-      echo "---"
-      echo; echo "# $cap — Map of Contents"; echo
-      echo "## Architecture"; echo
-      echo "## Features"; echo
-      echo "## Recent logs"; echo
-    } > "$moc"
-    ok "seeded $moc"
+    if [[ $DRY_RUN -eq 1 ]]; then
+      printf '\033[1;35m dry\033[0m %s\n' "would seed $moc"
+    else
+      cap="$(printf '%s' "${g:0:1}" | tr '[:lower:]' '[:upper:]')${g:1}"
+      {
+        echo "---"
+        echo "title: $cap — Map of Contents"
+        echo "group: $g"
+        echo "tags: [$g, moc]"
+        echo "type: moc"
+        echo "---"
+        echo; echo "# $cap — Map of Contents"; echo
+        echo "## Architecture"; echo
+        echo "## Features"; echo
+        echo "## Recent logs"; echo
+      } > "$moc"
+      ok "seeded $moc"
+    fi
   fi
 done
-ok "vault tree ready (groups: $(tr '\n' ',' < "$VAULT_DIR/.groups" | sed 's/,$//'))"
+if [[ $DRY_RUN -eq 0 ]]; then
+  ok "vault tree ready (groups: $(tr '\n' ',' < "$VAULT_DIR/.groups" | sed 's/,$//'))"
+else
+  ok "vault tree ready [dry-run] (groups: $MEM_GROUPS)"
+fi
 
 # 2. Vault CLAUDE.md, template, .gitignore
 if [[ ! -f "$VAULT_DIR/CLAUDE.md" ]]; then
-  cp "$REPO_DIR/vault-template/CLAUDE.md" "$VAULT_DIR/CLAUDE.md"
+  run "cp \"$REPO_DIR/vault-template/CLAUDE.md\" \"$VAULT_DIR/CLAUDE.md\""
   ok "installed $VAULT_DIR/CLAUDE.md"
 else
   warn "$VAULT_DIR/CLAUDE.md already exists — leaving it alone"
 fi
 if [[ ! -f "$VAULT_DIR/templates/default-note.md" ]]; then
-  cp "$REPO_DIR/vault-template/templates/default-note.md" "$VAULT_DIR/templates/default-note.md"
+  run "cp \"$REPO_DIR/vault-template/templates/default-note.md\" \"$VAULT_DIR/templates/default-note.md\""
   ok "installed default note template"
 fi
 if [[ ! -f "$VAULT_DIR/.gitignore" && -f "$REPO_DIR/vault-template/.gitignore" ]]; then
-  cp "$REPO_DIR/vault-template/.gitignore" "$VAULT_DIR/.gitignore"
+  run "cp \"$REPO_DIR/vault-template/.gitignore\" \"$VAULT_DIR/.gitignore\""
   ok "installed vault .gitignore"
 fi
 
 # 3. Global Claude Code instructions
 say "Installing global ~/.claude/CLAUDE.md"
-mkdir -p "$CLAUDE_DIR"
+run "mkdir -p \"$CLAUDE_DIR\""
 if [[ -f "$CLAUDE_DIR/CLAUDE.md" && ! -f "$CLAUDE_DIR/CLAUDE.md.obsidian-memory.bak" ]]; then
-  cp "$CLAUDE_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md.obsidian-memory.bak"
+  run "cp \"$CLAUDE_DIR/CLAUDE.md\" \"$CLAUDE_DIR/CLAUDE.md.obsidian-memory.bak\""
   warn "existing ~/.claude/CLAUDE.md backed up to CLAUDE.md.obsidian-memory.bak"
 fi
-cp "$REPO_DIR/claude-global/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
+run "cp \"$REPO_DIR/claude-global/CLAUDE.md\" \"$CLAUDE_DIR/CLAUDE.md\""
 ok "memory commands loaded in every Claude Code session on this machine"
 
 # 4. Scripts
 say "Installing scripts to $SCRIPTS_DIR"
-mkdir -p "$SCRIPTS_DIR"
-cp "$REPO_DIR/scripts/"*.py "$SCRIPTS_DIR/"
-cp "$REPO_DIR/scripts/"*.sh "$SCRIPTS_DIR/"
-chmod +x "$SCRIPTS_DIR"/*.sh "$SCRIPTS_DIR"/*.py 2>/dev/null || true
+run "mkdir -p \"$SCRIPTS_DIR\""
+run "cp \"$REPO_DIR/scripts/\"*.py \"$SCRIPTS_DIR/\""
+run "cp \"$REPO_DIR/scripts/\"*.sh \"$SCRIPTS_DIR/\""
+run "chmod +x \"$SCRIPTS_DIR\"/*.sh \"$SCRIPTS_DIR\"/*.py 2>/dev/null || true"
 ok "scripts installed ($(ls "$REPO_DIR/scripts" | wc -l) files)"
 
 # 4b. Hooks + statusLine in ~/.claude/settings.json
@@ -157,15 +172,15 @@ fi
 if [[ $INSTALL_PIP -eq 1 ]]; then
   if [[ -n "$PIP" ]]; then
     say "Installing Python tools (graphifyy, claude-conversation-extractor)"
-    "$PIP" install --user --upgrade graphifyy claude-conversation-extractor \
-      || warn "graphify/extractor install failed — retry manually"
+    run "\"$PIP\" install --user --upgrade graphifyy claude-conversation-extractor \
+      || warn 'graphify/extractor install failed — retry manually'"
   else
     warn "pip not found — skipping Python tools"
   fi
   if [[ $INSTALL_EMBED -eq 1 && -n "$PIP" ]]; then
     say "Installing semantic search deps (fastembed, sqlite-vec) — ~150MB"
-    "$PIP" install --user --upgrade fastembed sqlite-vec \
-      || warn "embedding deps install failed — /recall will not work until fixed"
+    run "\"$PIP\" install --user --upgrade fastembed sqlite-vec \
+      || warn 'embedding deps install failed — /recall will not work until fixed'"
   elif [[ $INSTALL_EMBED -eq 0 ]]; then
     warn "semantic search deps skipped (--no-embed)"
   fi
@@ -173,6 +188,7 @@ else
   warn "--no-pip set, skipping all Python tools"
 fi
 
+if [[ $DRY_RUN -eq 0 ]]; then
 cat <<EOF
 
 Setup complete.
@@ -193,3 +209,4 @@ Next steps:
   5. Start a Claude Code session and try /resume, /recall, /save.
 
 EOF
+fi
