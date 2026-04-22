@@ -8,6 +8,8 @@
 #   ./setup.sh --no-pip                        # skip all Python tools
 #   ./setup.sh --no-embed                      # skip semantic search deps only
 #   ./setup.sh --vault ~/mybrain               # custom vault location
+#   ./setup.sh --scripts-dir ~/bin/claude      # custom scripts dir (default ~/scripts)
+#   ./setup.sh --dry-run                       # print planned actions, write nothing
 #
 set -euo pipefail
 
@@ -20,12 +22,15 @@ INSTALL_PIP=1
 INSTALL_EMBED=1
 MEM_GROUPS=""
 
+DRY_RUN=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --no-pip)   INSTALL_PIP=0 ;;
-    --no-embed) INSTALL_EMBED=0 ;;
-    --vault)    VAULT_DIR="$2"; shift ;;
-    --groups)   MEM_GROUPS="$2"; shift ;;
+    --no-pip)      INSTALL_PIP=0 ;;
+    --no-embed)    INSTALL_EMBED=0 ;;
+    --vault)       VAULT_DIR="$2"; shift ;;
+    --groups)      MEM_GROUPS="$2"; shift ;;
+    --scripts-dir) SCRIPTS_DIR="$2"; shift ;;
+    --dry-run)     DRY_RUN=1 ;;
     -h|--help)
       grep '^# ' "$0" | sed 's/^# //'
       exit 0
@@ -50,7 +55,7 @@ if [[ -z "$MEM_GROUPS" ]]; then
     [[ -z "$MEM_GROUPS" ]] && MEM_GROUPS="work,personal"
   fi
 fi
-IFS=',' read -ra MEM_GROUP_ARR < <(printf '%s' "$MEM_GROUPS")
+IFS=',' read -ra MEM_GROUP_ARR <<< "$MEM_GROUPS"
 
 # 1. Vault tree
 say "Creating vault at $VAULT_DIR"
@@ -117,21 +122,29 @@ cp "$REPO_DIR/scripts/"*.sh "$SCRIPTS_DIR/"
 chmod +x "$SCRIPTS_DIR"/*.sh "$SCRIPTS_DIR"/*.py 2>/dev/null || true
 ok "scripts installed ($(ls "$REPO_DIR/scripts" | wc -l) files)"
 
-# 4b. Hooks in ~/.claude/settings.json
-say "Wiring hooks into $CLAUDE_DIR/settings.json"
+# 4b. Hooks + statusLine in ~/.claude/settings.json
+say "Wiring hooks + statusline into $CLAUDE_DIR/settings.json (scripts dir: $SCRIPTS_DIR)"
 if command -v jq >/dev/null 2>&1; then
   target="$CLAUDE_DIR/settings.json"
   src="$REPO_DIR/claude-global/settings.json"
-  if [[ -f "$target" ]]; then
+  # Template the scripts dir into the source JSON (uses ~/scripts by default in repo).
+  tmp_src="$(mktemp)"
+  sed "s|~/scripts|${SCRIPTS_DIR/#$HOME/~}|g; s|\$HOME/scripts|$SCRIPTS_DIR|g" "$src" > "$tmp_src"
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    warn "DRY RUN — would merge these hooks into $target:"
+    jq . "$tmp_src"
+  elif [[ -f "$target" ]]; then
     cp "$target" "$target.obsidian-memory.bak"
-    jq -s '.[0].hooks = .[1].hooks | .[0]' "$target" "$src" > "$target.tmp" \
+    jq -s '.[0].hooks = .[1].hooks | .[0].statusLine = .[1].statusLine | .[0]' "$target" "$tmp_src" > "$target.tmp" \
       && mv "$target.tmp" "$target" \
-      && ok "merged hooks into existing settings.json (backup: settings.json.obsidian-memory.bak)"
+      && ok "merged hooks + statusline into existing settings.json (backup: settings.json.obsidian-memory.bak)"
   else
-    cp "$src" "$target"
-    ok "installed fresh settings.json with hooks"
+    cp "$tmp_src" "$target"
+    ok "installed fresh settings.json with hooks + statusline"
   fi
-  warn "Restart Claude Code for hook changes to take effect"
+  rm -f "$tmp_src"
+  [[ $DRY_RUN -eq 0 ]] && warn "Restart Claude Code for hook changes to take effect"
 else
   warn "jq not installed — skipping settings.json merge. Install jq and re-run, or copy hooks block manually from claude-global/settings.json"
 fi
