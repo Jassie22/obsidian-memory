@@ -1,0 +1,9 @@
+# Project groups — one slug per line, kebab-case.
+# Uncomment or edit to match your projects. `setup.sh` reads this on first
+# install; you can also edit ~/vault/.groups directly at any time.
+#
+# Examples:
+# work
+# personal
+# research
+# client-acme
