@@ -4,7 +4,7 @@
 **Status:** Draft — awaiting user review
 **Author:** Jas (with Claude)
 **Target delivery:** 2026-04-24 (Fri)
-**Version:** 0.1
+**Version:** 0.2
 
 > This document is expected to change. Bump **Version** and append to the `## Revision log` at the bottom on every update. Every section that contains the cookbook content is dated inline so it's obvious when an item was last refreshed.
 
@@ -65,16 +65,33 @@ Every artifact filename carries `YYYY-MM-DD`. Every artifact has frontmatter wit
 
 **Structure:** one-line framing ("here's how I stopped copy-pasting into chat.ai") → 8 use cases → handout walk-through → Q&A.
 
-### Use cases (v0.1 — 2026-04-22)
+### Use cases (v0.2 — 2026-04-22)
 
-1. **"Run it later / overnight"** — schedule a plan with Claude. Out of credits? Big refactor? Run it at 2 a.m. Tools: `/schedule`, `CronCreate`, `/loop`. *Jas's example: the scenario Henry mentioned — "I want to kick off a plan but save my credits for later."*
-2. **Claude Code, not web chat** — the repo-native workflow. Per-repo `CLAUDE.md` pins context. Tool: Claude Code + `CLAUDE.md`.
-3. **Figma → code** — paste a Figma URL, get a scaffold that respects the actual design tokens. Tool: `plugin:figma` MCP (`get_design_context`, `get_screenshot`). *Relevant to Arc's current corp-site rebuild with Charlie.*
-4. **GitHub-native PR work** — review, comment, triage without leaving the terminal. Tool: `plugin:github` MCP.
-5. **Stop re-deriving decisions** — `/recall` across a vault for "what did we decide about X three months ago." Tool: this repo (`vault_search.py`, the whole memory setup).
+**Headline item (the repo itself):**
+
+1. **Give Claude a brain that lasts longer than one session** — this is the repo they're being handed. Covers the full Obsidian-memory setup:
+   - **`/recall`** — semantic search across a vault of past notes ("what did we decide about X three months ago"). Claude reads the top hits before answering.
+   - **`/save`** — end-of-session log with decisions + open items, dropped into the group's `logs/`.
+   - **`/capture`** — quick free-form thought drop into `inbox/` without ceremony.
+   - **`/resume`** — opens a new session with the last 3 logs + decisions loaded.
+   - **Proactive note-writer** — a hook that reminds Claude to capture durable context (decisions, gotchas, corrections) every turn, so knowledge doesn't evaporate between chats.
+   - **Auto-commit + auto-pull** across devices — the vault stays in sync without thinking about it.
+   - **Secret guard** — a `PreToolUse` hook that blocks any Write/Edit into `~/vault/` if a secret pattern is detected, so plaintext memory stays safe.
+   - **Groups** — top-level project categories (one per client or concern), so "work" and "personal" memory don't bleed into each other.
+   - **One-command setup** — `git clone + ./setup.sh` and a teammate is running the same system.
+   - Why this matters for the Arc team: every engineer has their own "what did Charlie decide about the hero" rolodex right now, in Slack or memory. This externalises it.
+
+**Other use cases:**
+
+2. **"Run it later / overnight"** — schedule a plan with Claude. Out of credits? Big refactor? Run it at 2 a.m. Tools: `/schedule`, `CronCreate`, `/loop`. *Jas's example: the scenario Henry mentioned — "I want to kick off a plan but save my credits for later."*
+3. **Claude Code, not web chat** — the repo-native workflow. Per-repo `CLAUDE.md` pins context. Tool: Claude Code + `CLAUDE.md`.
+4. **Figma → code** — paste a Figma URL, get a scaffold that respects the actual design tokens. Tool: `plugin:figma` MCP (`get_design_context`, `get_screenshot`). *Relevant to Arc's current corp-site rebuild with Charlie.*
+5. **GitHub-native PR work** — review, comment, triage without leaving the terminal. Tool: `plugin:github` MCP.
 6. **Subagents for parallel work** — dispatch `Explore` for a wide codebase search, `Plan` for a design pass, multiple at once. Tool: Agent tool + parallel dispatch.
 7. **Skills for repetitive patterns** — write once, Claude runs it on trigger. Live example: `superpowers`, `simplify`, custom skills per team. Tool: skill-creator + user skills dir.
 8. **Cursor for inline fixes** — when a full Claude Code session is overkill, stay in-editor. Positioned as a companion, not a replacement.
+
+*Use case 1 (Obsidian memory) gets roughly 2× the airtime of the others — ~5 min, because it's the thing in their hand. The remaining 7 are ~2 min each.*
 
 ### Deliberately held back (v0.1)
 - TDD / systematic-debugging skills — powerful but deep; 25 min won't do them justice.
@@ -90,7 +107,7 @@ Every artifact filename carries `YYYY-MM-DD`. Every artifact has frontmatter wit
 
 ### Use cases (v0.1 — 2026-04-22)
 
-1. **Claude Projects ("Claude Design")** — build a preset for a recurring task (meeting debrief, sales-enquiry triage). System prompt + knowledge files + sharing with the team. Tool: claude.ai Projects. *This is the anchor topic for this session.*
+1. **Claude Projects ("Claude Design")** — build a preset for a recurring task (meeting debrief, sales-enquiry triage). System prompt + knowledge files + sharing with the team. Tool: claude.ai Projects. *This is the anchor topic for this session. Conceptual parallel to the engineering "Obsidian memory" item — Projects are how non-engineers give Claude persistent context: a system prompt + knowledge docs that stay loaded across chats.*
 2. **Schedule Claude for weekly jobs** — Monday inbox digest, Friday sales summary, overnight research. Tool: `/schedule` (non-engineer framing).
 3. **"Answer from this doc"** — upload a contract/brief, ask questions without reading end-to-end. Tool: Claude.ai file upload, or Drive MCP for recurring docs.
 4. **Draft emails with your voice** — a Project with tone samples + Gmail MCP for draft generation. Tool: Gmail MCP.
@@ -148,9 +165,10 @@ No changes to the existing memory system, scripts, or hooks. Session content is 
 ## Next steps
 
 1. User reviews this spec. Edit in place; bump Version.
-2. On approval, hand off to `superpowers:writing-plans` for the build plan.
-3. Plan will cover: drafting each deliverable, review checkpoints, and the repo changes listed above.
+2. Keep iterating the spec (user prefers brainstorm over a separate implementation plan).
+3. When the use-case lists and repo-layout feel settled, start drafting the deliverables (D1–D6) directly from this spec.
 
 ## Revision log
 
+- **2026-04-22 — v0.2** — Promoted the Obsidian-memory system to engineering use case 1 ("give Claude a brain that lasts longer than one session") with 2× airtime — it's the actual repo being handed over, so it earns the headline slot. Other eng use cases renumbered 2–8. Business use case 1 (Claude Projects) reframed as the non-engineer parallel to persistent memory. Removed the "hand off to writing-plans" next-step — user prefers spec iteration over formal plans.
 - **2026-04-22 — v0.1** — Initial draft after scoping conversation on 2026-04-22. Audience (B), goals (eng=leverage, biz=leverage+evaluation), duration (~25 min each), format (discussion + handout, no demo), scope (Claude-primary), content outline (8 use cases each). Open questions not yet resolved.
