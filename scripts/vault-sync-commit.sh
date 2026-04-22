@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # PostToolUse hook: if an edit happened inside ~/vault, commit + push.
 # Reads hook JSON from stdin.
+#
+# Hook JSON contract (stdin):
+#   .tool_input.file_path     target path (Write, Edit)
+#   .tool_response.filePath   fallback (some tools set this after success)
+#
+# Scope: fires on PostToolUse for Write|Edit|MultiEdit; no-op if target is
+# outside ~/vault/.
 set -u
 f=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty' 2>/dev/null)
 case "$f" in
