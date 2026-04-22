@@ -1853,3 +1853,286 @@ Manual check by the user: open a new Claude Code session, confirm the statusline
 Tasks 1-13 are repo changes with commits. Tasks 14-17 are more repo changes with commits. Task 18 is verification-only. Tasks 16 and 19 include off-repo steps (user's `~/vault`, `~/.claude`). When running in subagent-driven mode, flag Tasks 16 and 19 as requiring the user's actual machine, not a sandbox worktree.
 
 After each task's commit, push is optional — the repo's global rule says push after memory-system changes. Safe to batch: push once after Task 17, then one more push after Task 19 for the vault side.
+
+---
+
+## Task 20: Autodelete empty notes — integrate into existing rebuilders
+
+**Context:** The user explicitly asked (2026-04-22) for empty notes to be autodeleted. "Empty" = note with frontmatter only and no body content (whitespace after the closing `---` doesn't count). Files to skip (never delete, even if empty): `_MOC.md`, `rules.md`, `README.md`, anything under `templates/`, any file with `status: active` that is less than 24h old (might be in-progress).
+
+**Files:**
+- Modify: `scripts/vault_rebuild_mocs.py`
+- Modify: `scripts/rules_rebuild.py` (from T2)
+- Modify: `scripts/vault_search.py`
+- Create: `scripts/vault_clean_empty.py` (standalone sweep)
+
+- [ ] **Step 1: Add `is_empty_body(body: str) -> bool` helper to `vault_rebuild_mocs.py`**
+
+Insert near the top of `vault_rebuild_mocs.py` (after the existing `extract_tags` / `description` helpers):
+
+```python
+def is_empty_body(body: str) -> bool:
+    """Return True if the body has no real content (only whitespace / blank lines)."""
+    return body.strip() == ""
+```
+
+- [ ] **Step 2: In `vault_rebuild_mocs.py`, skip empty notes and autodelete those older than 24h**
+
+Find the loop that walks notes and builds MOC entries. Before emitting each entry, add:
+
+```python
+import time
+SAFE_AGE_SECONDS = 24 * 3600
+SKIP_DELETE_NAMES = {"_MOC.md", "rules.md", "README.md"}
+SKIP_DELETE_PARENTS = {"templates", "rules"}  # rules dir is managed by rules_rebuild.py
+
+def should_delete_empty(path: pathlib.Path) -> bool:
+    if path.name in SKIP_DELETE_NAMES:
+        return False
+    if any(parent.name in SKIP_DELETE_PARENTS for parent in path.parents):
+        return False
+    try:
+        age = time.time() - path.stat().st_mtime
+    except OSError:
+        return False
+    return age >= SAFE_AGE_SECONDS
+```
+
+In the walk loop, when processing each note file:
+
+```python
+fm, body = parse_frontmatter(text)
+if is_empty_body(body):
+    if should_delete_empty(note_path):
+        note_path.unlink()
+        print(f"deleted empty note: {note_path.relative_to(VAULT)}", file=sys.stderr)
+    # Either way, skip indexing
+    continue
+```
+
+- [ ] **Step 3: Mirror the same logic in `rules_rebuild.py`**
+
+In `load_rules()` (from T2), after parsing frontmatter:
+
+```python
+if is_empty_body(body):
+    # Rule files with no body — skip. Do NOT delete; user may be about to fill in via /add-rule.
+    continue
+```
+
+Do NOT autodelete rule files — they're actively authored; a freshly scaffolded rule from `/add-rule` will be empty for a few minutes.
+
+Copy the `is_empty_body` helper into `rules_rebuild.py` directly (small, no need for shared import).
+
+- [ ] **Step 4: Skip empty notes in `vault_search.py` indexer**
+
+In the file-walk that feeds the embedding indexer, add an early skip:
+
+```python
+# after reading text + parsing frontmatter
+if not body.strip():
+    continue
+```
+
+Place this in the main `index` subcommand's walk loop. Keep `find-similar` / `search` unchanged — they read the existing index.
+
+- [ ] **Step 5: Create `scripts/vault_clean_empty.py` — standalone sweep**
+
+```python
+#!/home/jas/.venvs/vault/bin/python3
+"""
+Find and delete empty vault notes (frontmatter-only, no body).
+
+Respects safety gates: files less than 24h old, files in protected
+directories (templates/, rules/), and reserved filenames (_MOC.md, rules.md,
+README.md) are never deleted.
+
+Usage:
+  vault_clean_empty.py                # dry-run, lists candidates
+  vault_clean_empty.py --delete       # actually delete
+"""
+from __future__ import annotations
+import argparse, os, pathlib, re, sys, time
+
+VAULT = pathlib.Path(os.environ.get("VAULT_DIR", pathlib.Path.home() / "vault"))
+SAFE_AGE_SECONDS = 24 * 3600
+SKIP_DELETE_NAMES = {"_MOC.md", "rules.md", "README.md"}
+SKIP_DELETE_PARENTS = {"templates", "rules"}
+FM_RE = re.compile(r"\A---\n(.*?)\n---\n?(.*)\Z", re.DOTALL)
+
+
+def has_empty_body(path: pathlib.Path) -> bool:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    m = FM_RE.match(text)
+    body = m.group(2) if m else text
+    return body.strip() == ""
+
+
+def is_protected(path: pathlib.Path) -> bool:
+    if path.name in SKIP_DELETE_NAMES:
+        return True
+    if any(parent.name in SKIP_DELETE_PARENTS for parent in path.parents):
+        return True
+    return False
+
+
+def old_enough(path: pathlib.Path) -> bool:
+    try:
+        return (time.time() - path.stat().st_mtime) >= SAFE_AGE_SECONDS
+    except OSError:
+        return False
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--delete", action="store_true", help="actually delete (default: dry run)")
+    args = ap.parse_args()
+
+    candidates = []
+    for f in VAULT.rglob("*.md"):
+        if is_protected(f):
+            continue
+        if not has_empty_body(f):
+            continue
+        if not old_enough(f):
+            continue
+        candidates.append(f)
+
+    if not candidates:
+        print("no empty notes to delete")
+        return
+
+    for c in candidates:
+        rel = c.relative_to(VAULT)
+        if args.delete:
+            c.unlink()
+            print(f"deleted: {rel}")
+        else:
+            print(f"[dry-run] would delete: {rel}")
+
+    if not args.delete:
+        print(f"\n{len(candidates)} candidates. Run with --delete to remove.")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+- [ ] **Step 6: Make it executable**
+
+Run: `chmod +x scripts/vault_clean_empty.py`
+
+- [ ] **Step 7: Verify all three integrations**
+
+```bash
+# Set up test vault
+tmp=$(mktemp -d)
+mkdir -p "$tmp/arc"
+# empty note, old → should be deleted by MOC rebuilder
+cat > "$tmp/arc/empty-old.md" <<EOF
+---
+title: Empty old
+group: arc
+tags: [arc]
+---
+EOF
+touch -d "2 days ago" "$tmp/arc/empty-old.md"
+# empty note, fresh → should be skipped but NOT deleted
+cat > "$tmp/arc/empty-fresh.md" <<EOF
+---
+title: Empty fresh
+group: arc
+tags: [arc]
+---
+EOF
+# full note → should appear in MOC
+cat > "$tmp/arc/real.md" <<EOF
+---
+title: Real note
+group: arc
+tags: [arc]
+---
+
+This note has content.
+EOF
+echo "arc" > "$tmp/.groups"
+
+VAULT_DIR="$tmp" scripts/vault_rebuild_mocs.py 2>&1 | head -5
+ls "$tmp/arc/"
+```
+
+Expected: `empty-old.md` deleted; `empty-fresh.md` remains on disk but absent from the MOC; `real.md` listed in MOC.
+
+- [ ] **Step 8: Verify the standalone cleaner**
+
+```bash
+# dry run
+VAULT_DIR="$tmp" scripts/vault_clean_empty.py
+# touch fresh file backwards in time
+touch -d "2 days ago" "$tmp/arc/empty-fresh.md"
+VAULT_DIR="$tmp" scripts/vault_clean_empty.py --delete
+ls "$tmp/arc/"
+```
+Expected: dry-run lists nothing (the one old file was already deleted by the MOC rebuilder); after aging + `--delete`, the fresh file also gets removed.
+
+- [ ] **Step 9: Clean up**
+
+Run: `rm -rf "$tmp"`
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add scripts/vault_rebuild_mocs.py scripts/rules_rebuild.py scripts/vault_search.py scripts/vault_clean_empty.py
+git commit -m "feat(vault): autodelete empty notes older than 24h; skip empty in indexes"
+```
+
+---
+
+## Task 21: Add `/clean-empty` slash command
+
+**Files:**
+- Create: `claude-global/commands/clean-empty.md`
+
+- [ ] **Step 1: Create the command definition**
+
+```markdown
+---
+description: List or delete empty vault notes (frontmatter only, no body) older than 24h.
+argument-hint: [--delete]
+---
+
+# /clean-empty
+
+List empty notes in `~/vault/`. By default dry-runs — shows candidates only. With `--delete`, actually removes them.
+
+## Steps
+
+1. If the user passed `--delete` as the argument, run:
+   ```
+   ~/scripts/vault_clean_empty.py --delete
+   ```
+2. Otherwise run a dry scan:
+   ```
+   ~/scripts/vault_clean_empty.py
+   ```
+3. Summarise the output to the user. If dry-run and candidates exist, ask if they want to delete.
+4. If the user says yes, re-run with `--delete`.
+5. After any deletion, auto-commit + push the vault per global rules.
+
+## Safety
+
+- Protected paths (never deleted): `templates/`, `rules/`, `_MOC.md`, `rules.md`, `README.md`.
+- Age gate: only files with mtime ≥ 24h are eligible for deletion. Fresher empty files stay alone.
+- The cleaner is idempotent and safe to run anytime.
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add claude-global/commands/clean-empty.md
+git commit -m "feat(commands): /clean-empty lists/deletes empty vault notes"
+```
+
