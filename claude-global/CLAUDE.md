@@ -74,7 +74,7 @@ For **code repos**: normal workflow — commit when a logical change is done, pu
 6. Auto-commit + push the vault.
 
 ### `/capture <free-form text>`
-Quick-drop a thought into `~/vault/inbox/` without ceremony. Use when the user wants to stash something fast — "capture: Charlie prefers thursday reviews", "/capture the Stripe webhook retries 3x before 4xx".
+Quick-drop a thought into `~/vault/inbox/` without ceremony. Use when the user wants to stash something fast — "capture: the staging DB doubles write latency on Wednesdays", "/capture the Stripe webhook retries 3x before 4xx".
 
 1. Slug = first 5-6 meaningful words, kebab-case.
 2. Write `~/vault/inbox/YYYY-MM-DD-<slug>.md`:

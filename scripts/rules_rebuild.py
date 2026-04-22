@@ -1,4 +1,4 @@
-#!/home/jas/.venvs/vault/bin/python3
+#!/usr/bin/env python3
 """
 Rebuild ~/vault/rules.md from per-rule files in ~/vault/rules/*.md.
 
