@@ -7,7 +7,6 @@
 #   ./setup.sh --groups work,personal          # non-interactive
 #   ./setup.sh --no-pip                        # skip all Python tools
 #   ./setup.sh --no-embed                      # skip semantic search deps only
-#   ./setup.sh --cron                          # daily chat-sync cron (Linux/macOS)
 #   ./setup.sh --vault ~/mybrain               # custom vault location
 #
 set -euo pipefail
@@ -16,18 +15,15 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VAULT_DIR="${VAULT_DIR:-$HOME/vault}"
 CLAUDE_DIR="$HOME/.claude"
 SCRIPTS_DIR="$HOME/scripts"
-EXPORT_DIR="$HOME/claude-exports"
 
 INSTALL_PIP=1
 INSTALL_EMBED=1
-INSTALL_CRON=0
 MEM_GROUPS=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-pip)   INSTALL_PIP=0 ;;
     --no-embed) INSTALL_EMBED=0 ;;
-    --cron)     INSTALL_CRON=1 ;;
     --vault)    VAULT_DIR="$2"; shift ;;
     --groups)   MEM_GROUPS="$2"; shift ;;
     -h|--help)
@@ -115,7 +111,7 @@ ok "memory commands loaded in every Claude Code session on this machine"
 
 # 4. Scripts
 say "Installing scripts to $SCRIPTS_DIR"
-mkdir -p "$SCRIPTS_DIR" "$EXPORT_DIR"/{code,web}
+mkdir -p "$SCRIPTS_DIR"
 cp "$REPO_DIR/scripts/"*.py "$SCRIPTS_DIR/"
 cp "$REPO_DIR/scripts/"*.sh "$SCRIPTS_DIR/"
 chmod +x "$SCRIPTS_DIR"/*.sh "$SCRIPTS_DIR"/*.py 2>/dev/null || true
@@ -162,18 +158,6 @@ if [[ $INSTALL_PIP -eq 1 ]]; then
   fi
 else
   warn "--no-pip set, skipping all Python tools"
-fi
-
-# 6. Cron
-if [[ $INSTALL_CRON -eq 1 ]]; then
-  if command -v crontab >/dev/null 2>&1; then
-    say "Installing daily chat-sync cron (20:00)"
-    line="0 20 * * * $SCRIPTS_DIR/sync_claude_obsidian.sh"
-    ( crontab -l 2>/dev/null | grep -v -F "$SCRIPTS_DIR/sync_claude_obsidian.sh" ; echo "$line" ) | crontab -
-    ok "cron installed"
-  else
-    warn "crontab not available — use Task Scheduler on Windows"
-  fi
 fi
 
 cat <<EOF

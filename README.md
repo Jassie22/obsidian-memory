@@ -16,11 +16,10 @@ Portable "source of truth" for a Claude Code memory setup. Clone on any machine,
 5. [Memory commands](#memory-commands)
 6. [Semantic search (RAG layer)](#semantic-search-rag-layer)
 7. [Graphify (codebase knowledge graph)](#graphify-codebase-knowledge-graph)
-8. [Chat import pipeline](#chat-import-pipeline)
-9. [Daily workflow](#daily-workflow)
-10. [Syncing across devices](#syncing-across-devices)
-11. [Troubleshooting](#troubleshooting)
-12. [Credits](#credits)
+8. [Daily workflow](#daily-workflow)
+9. [Syncing across devices](#syncing-across-devices)
+10. [Troubleshooting](#troubleshooting)
+11. [Credits](#credits)
 
 ---
 
@@ -38,8 +37,6 @@ Portable "source of truth" for a Claude Code memory setup. Clone on any machine,
 | `scripts/vault-sync-commit.sh` | PostToolUse hook — auto-commit+push when a tool edits a file under `~/vault/`. |
 | `scripts/vault-note-trigger-reminder.sh` | UserPromptSubmit hook — injects the proactive-note trigger checklist every turn. |
 | `scripts/vault-secret-guard.sh` | PreToolUse hook — blocks Write/Edit to the vault if a secret pattern is detected. |
-| `scripts/claude_to_obsidian.py` | Turns Claude chat exports into tagged, wikilinked Obsidian notes. |
-| `scripts/sync_claude_obsidian.sh` | Cron-friendly daily sync of Code + Web chats into the vault. |
 | `setup.sh` | Idempotent bootstrap for a fresh machine. |
 
 ---
@@ -90,8 +87,6 @@ obsidian-memory/
 │
 └── scripts/
     ├── vault_search.py              semantic search (/recall)
-    ├── claude_to_obsidian.py        chat → Obsidian notes
-    └── sync_claude_obsidian.sh      daily chat import (cron)
 ```
 
 ---
@@ -176,26 +171,6 @@ graphify hook install   # rebuild on every git commit
 ```
 
 Claude Code checks for `graphify-out/graph.json` at session start. If missing, it prompts you to set it up; if present, it queries the graph before touching source files.
-
----
-
-## Chat import pipeline
-
-Turns Claude Code + Claude Web chats into searchable vault notes.
-
-```
-~/claude-exports/
-├── code/    filled by `claude-extract`
-└── web/     drop Web exports here manually
-```
-
-Automate (Linux/macOS):
-
-```bash
-./setup.sh --cron
-```
-
-On Windows use Task Scheduler pointing at `~/scripts/sync_claude_obsidian.sh`.
 
 ---
 
