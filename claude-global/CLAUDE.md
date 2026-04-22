@@ -172,13 +172,29 @@ If they agree:
 4. Offer `graphify hook install` (rebuild on commit).
 5. Offer `graphify watch .` during active dev.
 
-## Writing rules inside the vault
+## Vault note conventions
 
 - Wikilinks `[[like-this]]`, not markdown links.
 - Kebab-case filenames.
 - YAML frontmatter on every permanent note.
 - Tag with the group (`#<group>`).
 - Minimum two wikilinks per permanent note.
+
+## Rules system (behavior rules, authored by user)
+
+Behavior rules that modify Claude's actions live in `~/vault/rules/` (one file per rule). The index at `~/vault/rules.md` is auto-generated.
+
+**You (Claude) do not write to `~/vault/rules/` directly.** Rules are authored by the user via `/add-rule` or manual edits. The `rules-reminder.sh` UserPromptSubmit hook and `rules-preguard.sh` PreToolUse hook inject scope-matched rules into context at runtime — treat those injected blocks as standing orders for the current turn.
+
+**When the user dictates a new rule** ("always do X" / "from now on Y"):
+1. Confirm the rule wording with the user.
+2. Ask for `scope` (global / group / vault / tool:<Name>).
+3. Invoke `/add-rule` or scaffold the file directly at `~/vault/rules/<slug>.md`.
+4. Do NOT save as auto-memory feedback — that's scoped to one project and defeats cross-project reuse.
+
+**Precedence** when rules from multiple sources conflict: user's direct message this turn > `~/vault/rules/` > per-repo `CLAUDE.md` > this file > model defaults.
+
+**Tuning:** the user changes reminder cadence in `~/vault/rules/.config.yml` (`reminder_interval`). Don't edit that file unless the user explicitly asks.
 
 ## Safety
 
