@@ -215,6 +215,89 @@ python ~/scripts/vault_search.py index   # rebuilds the index locally
 
 ---
 
+## Rules system (author → enforce)
+
+Durable behavior rules for Claude live in `~/vault/rules/` — one file per rule, kebab-case slug, YAML frontmatter. The index at `~/vault/rules.md` is auto-generated.
+
+### Author a rule
+
+Easiest: in any Claude Code session, run
+
+    /add-rule "resolve relative dates in vault notes"
+
+The slash command scaffolds the file, prompts for scope + priority, and regenerates the index. Alternatively, create `~/vault/rules/<slug>.md` by hand — see `~/vault/rules/README.md` for the format.
+
+### Scope values (closed set)
+
+| scope | active when |
+|-------|-------------|
+| `global` | every session, every project |
+| `<group>` | active group in `~/vault/.groups` matches |
+| `vault` | tool target is inside `~/vault/` |
+| `tool:<Name>` | before that specific tool fires (e.g. `tool:Write`, `tool:Bash`) |
+
+Multiple scopes: `scope: [global, vault]`.
+
+### Enforcement mechanisms
+
+- **UserPromptSubmit hook** — `rules-reminder.sh` injects scope-matched rules every N turns.
+- **PreToolUse hook** — `rules-preguard.sh` injects rules matching `vault` or `tool:<Name>` before Write/Edit/Bash.
+- **Statusline** — `rules-statusline.sh` renders `📋 N rules · next reminder in K turns` persistently.
+
+---
+
+## Tuning the rules reminder
+
+Config lives in `~/vault/rules/.config.yml` (not in this repo — so teammates tune independently). Change one line:
+
+```yaml
+reminder_interval: 10    # change to 5 for more reliable, more expensive
+```
+
+Tradeoff: lower N = Claude forgets less + higher token cost per conversation. Higher N = cheaper + more drift between reminders. Start at 10, adjust as needed.
+
+Other fields:
+
+- `statusline_enabled: true|false` — toggle the `📋 …` statusline.
+- `preguard_enabled: true|false` — toggle scope-matched injection before Write/Edit/Bash.
+- `blocked_scopes: [arc, research]` — silence whole scopes temporarily without deleting rule files.
+
+Hooks re-read the config on every fire. No restart needed.
+
+---
+
+## For teammates: getting set up
+
+Three minutes, five steps:
+
+1. **Clone this repo:**
+   ```bash
+   git clone https://github.com/Jassie22/obsidian-memory.git
+   cd obsidian-memory
+   ```
+
+2. **Run setup:**
+   ```bash
+   ./setup.sh --groups work,personal     # or --groups <yours>
+   ```
+   Flags: `--scripts-dir <path>` for a custom scripts location (default `~/scripts`), `--dry-run` to preview, `--vault <path>` for a custom vault location (default `~/vault`).
+
+3. **Make your vault a private git repo** (each teammate has their own vault — notes are personal):
+   ```bash
+   cd ~/vault
+   git init && git add -A && git commit -m "initial vault"
+   git remote add origin <your-private-remote-url>   # MUST be private
+   git push -u origin main
+   ```
+
+4. **Edit `~/vault/rules/.config.yml`** if you want a different reminder cadence (default 10).
+
+5. **Restart Claude Code** — hooks take effect only on next session.
+
+That's it. `/resume`, `/save`, `/recall`, `/capture`, `/promote`, `/add-rule` are all available in every project.
+
+---
+
 ## Troubleshooting
 
 **`/recall` returns nothing.** Run `python ~/scripts/vault_search.py stats` — if `notes_indexed` is 0, run `index`.
