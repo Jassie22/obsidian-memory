@@ -189,6 +189,9 @@ def cmd_index():
             untouched += 1
             continue
         content = p.read_text(encoding="utf-8", errors="ignore")
+        # skip empty notes (frontmatter only, no body)
+        if not strip_frontmatter(content).strip():
+            continue
         h = hashlib.sha1(content.encode("utf-8")).hexdigest()
         if prev and prev[1] == h:
             conn.execute("UPDATE notes SET mtime=? WHERE path=?", (mtime, rel))
