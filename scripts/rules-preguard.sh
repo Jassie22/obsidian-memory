@@ -28,7 +28,7 @@ target=$(printf '%s' "$payload" | jq -r '
 
 scopes=("tool:$tool_name")
 case "$target" in
-  "$HOME/vault/"*) scopes+=("vault") ;;
+  "$VAULT/"*) scopes+=("vault") ;;
 esac
 
 blocked_raw=$(grep -E '^\s*blocked_scopes:' "$CONFIG" 2>/dev/null | head -1)
