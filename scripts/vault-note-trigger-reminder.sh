@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # UserPromptSubmit hook: injects the proactive-note-writer trigger checklist
 # as a system-reminder every user turn.
 #
