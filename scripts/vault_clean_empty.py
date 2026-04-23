@@ -1,4 +1,4 @@
-#!/home/jas/.venvs/vault/bin/python3
+#!/usr/bin/env python3
 """
 Find and delete empty vault notes (frontmatter-only, no body).
 

@@ -18,8 +18,11 @@ Portable "source of truth" for a Claude Code memory setup. Clone on any machine,
 7. [Graphify (codebase knowledge graph)](#graphify-codebase-knowledge-graph)
 8. [Daily workflow](#daily-workflow)
 9. [Syncing across devices](#syncing-across-devices)
-10. [Troubleshooting](#troubleshooting)
-11. [Credits](#credits)
+10. [Rules system (author → enforce)](#rules-system-author--enforce)
+11. [Tuning the rules reminder](#tuning-the-rules-reminder)
+12. [For teammates: getting set up](#for-teammates-getting-set-up)
+13. [Troubleshooting](#troubleshooting)
+14. [Credits](#credits)
 
 ---
 
@@ -260,7 +263,7 @@ Other fields:
 
 - `statusline_enabled: true|false` — toggle the `📋 …` statusline.
 - `preguard_enabled: true|false` — toggle scope-matched injection before Write/Edit/Bash.
-- `blocked_scopes: [arc, research]` — silence whole scopes temporarily without deleting rule files.
+- `blocked_scopes: [work, research]` — silence whole scopes temporarily without deleting rule files.
 
 Hooks re-read the config on every fire. No restart needed.
 
