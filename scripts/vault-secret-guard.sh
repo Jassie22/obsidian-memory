@@ -4,6 +4,18 @@
 #
 # On match: emit a JSON deny decision (exit 0) so Claude sees a structured
 # block message and can retry with redacted content.
+#
+# Hook JSON contract (stdin):
+#   .tool_name                       "Write" | "Edit" | "MultiEdit"
+#   .tool_input.file_path            target path (Write, Edit)
+#   .tool_input.notebook_path        fallback
+#   .tool_input.content              new content (Write)
+#   .tool_input.new_string           new content (Edit)
+#   .tool_input.edits[].new_string   per-edit content (MultiEdit)
+#
+# Return contract:
+#   exit 0 + empty stdout        → allow
+#   exit 0 + JSON deny on stdout → block with structured reason
 set -u
 
 payload="$(cat)"

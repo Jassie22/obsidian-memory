@@ -16,11 +16,13 @@ Portable "source of truth" for a Claude Code memory setup. Clone on any machine,
 5. [Memory commands](#memory-commands)
 6. [Semantic search (RAG layer)](#semantic-search-rag-layer)
 7. [Graphify (codebase knowledge graph)](#graphify-codebase-knowledge-graph)
-8. [Chat import pipeline](#chat-import-pipeline)
-9. [Daily workflow](#daily-workflow)
-10. [Syncing across devices](#syncing-across-devices)
-11. [Troubleshooting](#troubleshooting)
-12. [Credits](#credits)
+8. [Daily workflow](#daily-workflow)
+9. [Syncing across devices](#syncing-across-devices)
+10. [Rules system (author → enforce)](#rules-system-author--enforce)
+11. [Tuning the rules reminder](#tuning-the-rules-reminder)
+12. [For teammates: getting set up](#for-teammates-getting-set-up)
+13. [Troubleshooting](#troubleshooting)
+14. [Credits](#credits)
 
 ---
 
@@ -38,8 +40,6 @@ Portable "source of truth" for a Claude Code memory setup. Clone on any machine,
 | `scripts/vault-sync-commit.sh` | PostToolUse hook — auto-commit+push when a tool edits a file under `~/vault/`. |
 | `scripts/vault-note-trigger-reminder.sh` | UserPromptSubmit hook — injects the proactive-note trigger checklist every turn. |
 | `scripts/vault-secret-guard.sh` | PreToolUse hook — blocks Write/Edit to the vault if a secret pattern is detected. |
-| `scripts/claude_to_obsidian.py` | Turns Claude chat exports into tagged, wikilinked Obsidian notes. |
-| `scripts/sync_claude_obsidian.sh` | Cron-friendly daily sync of Code + Web chats into the vault. |
 | `setup.sh` | Idempotent bootstrap for a fresh machine. |
 
 ---
@@ -90,8 +90,6 @@ obsidian-memory/
 │
 └── scripts/
     ├── vault_search.py              semantic search (/recall)
-    ├── claude_to_obsidian.py        chat → Obsidian notes
-    └── sync_claude_obsidian.sh      daily chat import (cron)
 ```
 
 ---
@@ -179,26 +177,6 @@ Claude Code checks for `graphify-out/graph.json` at session start. If missing, i
 
 ---
 
-## Chat import pipeline
-
-Turns Claude Code + Claude Web chats into searchable vault notes.
-
-```
-~/claude-exports/
-├── code/    filled by `claude-extract`
-└── web/     drop Web exports here manually
-```
-
-Automate (Linux/macOS):
-
-```bash
-./setup.sh --cron
-```
-
-On Windows use Task Scheduler pointing at `~/scripts/sync_claude_obsidian.sh`.
-
----
-
 ## Daily workflow
 
 ```
@@ -237,6 +215,89 @@ git clone <your-vault-url>      ~/vault
 cd ~/obsidian-memory && ./setup.sh
 python ~/scripts/vault_search.py index   # rebuilds the index locally
 ```
+
+---
+
+## Rules system (author → enforce)
+
+Durable behavior rules for Claude live in `~/vault/rules/` — one file per rule, kebab-case slug, YAML frontmatter. The index at `~/vault/rules.md` is auto-generated.
+
+### Author a rule
+
+Easiest: in any Claude Code session, run
+
+    /add-rule "resolve relative dates in vault notes"
+
+The slash command scaffolds the file, prompts for scope + priority, and regenerates the index. Alternatively, create `~/vault/rules/<slug>.md` by hand — see `~/vault/rules/README.md` for the format.
+
+### Scope values (closed set)
+
+| scope | active when |
+|-------|-------------|
+| `global` | every session, every project |
+| `<group>` | active group in `~/vault/.groups` matches |
+| `vault` | tool target is inside `~/vault/` |
+| `tool:<Name>` | before that specific tool fires (e.g. `tool:Write`, `tool:Bash`) |
+
+Multiple scopes: `scope: [global, vault]`.
+
+### Enforcement mechanisms
+
+- **UserPromptSubmit hook** — `rules-reminder.sh` injects scope-matched rules every N turns.
+- **PreToolUse hook** — `rules-preguard.sh` injects rules matching `vault` or `tool:<Name>` before Write/Edit/Bash.
+- **Statusline** — `rules-statusline.sh` renders `📋 N rules · next reminder in K turns` persistently.
+
+---
+
+## Tuning the rules reminder
+
+Config lives in `~/vault/rules/.config.yml` (not in this repo — so teammates tune independently). Change one line:
+
+```yaml
+reminder_interval: 10    # change to 5 for more reliable, more expensive
+```
+
+Tradeoff: lower N = Claude forgets less + higher token cost per conversation. Higher N = cheaper + more drift between reminders. Start at 10, adjust as needed.
+
+Other fields:
+
+- `statusline_enabled: true|false` — toggle the `📋 …` statusline.
+- `preguard_enabled: true|false` — toggle scope-matched injection before Write/Edit/Bash.
+- `blocked_scopes: [work, research]` — silence whole scopes temporarily without deleting rule files.
+
+Hooks re-read the config on every fire. No restart needed.
+
+---
+
+## For teammates: getting set up
+
+Three minutes, five steps:
+
+1. **Clone this repo:**
+   ```bash
+   git clone https://github.com/Jassie22/obsidian-memory.git
+   cd obsidian-memory
+   ```
+
+2. **Run setup:**
+   ```bash
+   ./setup.sh --groups work,personal     # or --groups <yours>
+   ```
+   Flags: `--scripts-dir <path>` for a custom scripts location (default `~/scripts`), `--dry-run` to preview, `--vault <path>` for a custom vault location (default `~/vault`).
+
+3. **Make your vault a private git repo** (each teammate has their own vault — notes are personal):
+   ```bash
+   cd ~/vault
+   git init && git add -A && git commit -m "initial vault"
+   git remote add origin <your-private-remote-url>   # MUST be private
+   git push -u origin main
+   ```
+
+4. **Edit `~/vault/rules/.config.yml`** if you want a different reminder cadence (default 10).
+
+5. **Restart Claude Code** — hooks take effect only on next session.
+
+That's it. `/resume`, `/save`, `/recall`, `/capture`, `/promote`, `/add-rule` are all available in every project.
 
 ---
 

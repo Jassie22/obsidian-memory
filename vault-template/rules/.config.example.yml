@@ -1,0 +1,19 @@
+# Rules-system config. Edit freely — hooks re-read on every fire; no restart needed.
+#
+# Lives at ~/vault/rules/.config.yml (not in the shared repo).
+# Each teammate tunes independently.
+
+# UserPromptSubmit hook fires every N turns. 1 = every turn (expensive).
+# Lower  = more reliable, higher token cost per conversation.
+# Higher = cheaper, more drift. Default 10 is a reasonable middle.
+reminder_interval: 10
+
+# Show rule count + turns-until-next-reminder in the Claude Code statusline.
+statusline_enabled: true
+
+# Inject scope-matched rules before Write/Edit/Bash. Cheap, targeted.
+preguard_enabled: true
+
+# Temporarily disable scopes without deleting rule files.
+# Example: ["arc"] silences every arc-scoped rule.
+blocked_scopes: []

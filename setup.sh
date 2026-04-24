@@ -7,8 +7,9 @@
 #   ./setup.sh --groups work,personal          # non-interactive
 #   ./setup.sh --no-pip                        # skip all Python tools
 #   ./setup.sh --no-embed                      # skip semantic search deps only
-#   ./setup.sh --cron                          # daily chat-sync cron (Linux/macOS)
 #   ./setup.sh --vault ~/mybrain               # custom vault location
+#   ./setup.sh --scripts-dir ~/bin/claude      # custom scripts dir (default ~/scripts)
+#   ./setup.sh --dry-run                       # print planned actions, write nothing
 #
 set -euo pipefail
 
@@ -16,20 +17,20 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VAULT_DIR="${VAULT_DIR:-$HOME/vault}"
 CLAUDE_DIR="$HOME/.claude"
 SCRIPTS_DIR="$HOME/scripts"
-EXPORT_DIR="$HOME/claude-exports"
 
 INSTALL_PIP=1
 INSTALL_EMBED=1
-INSTALL_CRON=0
 MEM_GROUPS=""
 
+DRY_RUN=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --no-pip)   INSTALL_PIP=0 ;;
-    --no-embed) INSTALL_EMBED=0 ;;
-    --cron)     INSTALL_CRON=1 ;;
-    --vault)    VAULT_DIR="$2"; shift ;;
-    --groups)   MEM_GROUPS="$2"; shift ;;
+    --no-pip)      INSTALL_PIP=0 ;;
+    --no-embed)    INSTALL_EMBED=0 ;;
+    --vault)       VAULT_DIR="$2"; shift ;;
+    --groups)      MEM_GROUPS="$2"; shift ;;
+    --scripts-dir) SCRIPTS_DIR="$2"; shift ;;
+    --dry-run)     DRY_RUN=1 ;;
     -h|--help)
       grep '^# ' "$0" | sed 's/^# //'
       exit 0
@@ -42,6 +43,13 @@ done
 say()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m ok\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m  !\033[0m %s\n' "$*"; }
+run() {
+  if [[ $DRY_RUN -eq 1 ]]; then
+    printf '\033[1;35m dry\033[0m %s\n' "$*"
+  else
+    eval "$@"
+  fi
+}
 
 # 0. Groups
 if [[ -z "$MEM_GROUPS" ]]; then
@@ -50,94 +58,131 @@ if [[ -z "$MEM_GROUPS" ]]; then
     MEM_GROUPS="${MEM_GROUPS%,}"
     ok "reusing existing groups: $MEM_GROUPS"
   else
+    template="$REPO_DIR/vault-template/.groups.template"
+    if [[ -f "$template" ]]; then
+      echo "Groups live in ~/vault/.groups — one slug per line. Examples from template:"
+      grep -v '^#' "$template" | grep -v '^$' | sed 's/^/  /'
+      echo "(none shown if the template has only commented examples)"
+    fi
     read -rp "Project groups (comma-separated, e.g. work,personal,research): " MEM_GROUPS
     [[ -z "$MEM_GROUPS" ]] && MEM_GROUPS="work,personal"
   fi
 fi
-IFS=',' read -ra MEM_GROUP_ARR < <(printf '%s' "$MEM_GROUPS")
+IFS=',' read -ra MEM_GROUP_ARR <<< "$MEM_GROUPS"
 
 # 1. Vault tree
 say "Creating vault at $VAULT_DIR"
-mkdir -p "$VAULT_DIR"/{permanent,inbox,fleeting,templates,references,logs}
-mkdir -p "$VAULT_DIR"/chats/{code,web}
-: > "$VAULT_DIR/.groups"
+run "mkdir -p \"$VAULT_DIR\"/{permanent,inbox,fleeting,templates,references,logs}"
+run "mkdir -p \"$VAULT_DIR\"/chats/{code,web}"
+run ": > \"$VAULT_DIR/.groups\""
 for g in "${MEM_GROUP_ARR[@]}"; do
   g="$(echo "$g" | xargs)"
   [[ -z "$g" ]] && continue
-  echo "$g" >> "$VAULT_DIR/.groups"
-  mkdir -p "$VAULT_DIR/$g"/{architecture,features,data,pipeline,logs}
-  mkdir -p "$VAULT_DIR/graphify/$g"
+  run "printf '%s\n' \"$g\" >> \"$VAULT_DIR/.groups\""
+  run "mkdir -p \"$VAULT_DIR/$g\"/{architecture,features,data,pipeline,logs}"
+  run "mkdir -p \"$VAULT_DIR/graphify/$g\""
   moc="$VAULT_DIR/$g/_MOC.md"
   if [[ ! -f "$moc" ]]; then
-    cap="$(printf '%s' "${g:0:1}" | tr '[:lower:]' '[:upper:]')${g:1}"
-    {
-      echo "---"
-      echo "title: $cap — Map of Contents"
-      echo "group: $g"
-      echo "tags: [$g, moc]"
-      echo "type: moc"
-      echo "---"
-      echo; echo "# $cap — Map of Contents"; echo
-      echo "## Architecture"; echo
-      echo "## Features"; echo
-      echo "## Recent logs"; echo
-    } > "$moc"
-    ok "seeded $moc"
+    if [[ $DRY_RUN -eq 1 ]]; then
+      printf '\033[1;35m dry\033[0m %s\n' "would seed $moc"
+    else
+      cap="$(printf '%s' "${g:0:1}" | tr '[:lower:]' '[:upper:]')${g:1}"
+      {
+        echo "---"
+        echo "title: $cap — Map of Contents"
+        echo "group: $g"
+        echo "tags: [$g, moc]"
+        echo "type: moc"
+        echo "---"
+        echo; echo "# $cap — Map of Contents"; echo
+        echo "## Architecture"; echo
+        echo "## Features"; echo
+        echo "## Recent logs"; echo
+      } > "$moc"
+      ok "seeded $moc"
+    fi
   fi
 done
-ok "vault tree ready (groups: $(tr '\n' ',' < "$VAULT_DIR/.groups" | sed 's/,$//'))"
+if [[ $DRY_RUN -eq 0 ]]; then
+  ok "vault tree ready (groups: $(tr '\n' ',' < "$VAULT_DIR/.groups" | sed 's/,$//'))"
+else
+  ok "vault tree ready [dry-run] (groups: $MEM_GROUPS)"
+fi
 
 # 2. Vault CLAUDE.md, template, .gitignore
 if [[ ! -f "$VAULT_DIR/CLAUDE.md" ]]; then
-  cp "$REPO_DIR/vault-template/CLAUDE.md" "$VAULT_DIR/CLAUDE.md"
+  run "cp \"$REPO_DIR/vault-template/CLAUDE.md\" \"$VAULT_DIR/CLAUDE.md\""
   ok "installed $VAULT_DIR/CLAUDE.md"
 else
   warn "$VAULT_DIR/CLAUDE.md already exists — leaving it alone"
 fi
 if [[ ! -f "$VAULT_DIR/templates/default-note.md" ]]; then
-  cp "$REPO_DIR/vault-template/templates/default-note.md" "$VAULT_DIR/templates/default-note.md"
+  run "cp \"$REPO_DIR/vault-template/templates/default-note.md\" \"$VAULT_DIR/templates/default-note.md\""
   ok "installed default note template"
 fi
 if [[ ! -f "$VAULT_DIR/.gitignore" && -f "$REPO_DIR/vault-template/.gitignore" ]]; then
-  cp "$REPO_DIR/vault-template/.gitignore" "$VAULT_DIR/.gitignore"
+  run "cp \"$REPO_DIR/vault-template/.gitignore\" \"$VAULT_DIR/.gitignore\""
   ok "installed vault .gitignore"
+fi
+
+# 2b. Rules system — ~/vault/rules/
+if [[ ! -d "$VAULT_DIR/rules" ]]; then
+  run "mkdir -p \"$VAULT_DIR/rules\""
+  run "cp \"$REPO_DIR/vault-template/rules/\"*.md \"$VAULT_DIR/rules/\""
+  run "cp \"$REPO_DIR/vault-template/rules/.config.example.yml\" \"$VAULT_DIR/rules/.config.yml\""
+  ok "installed rules scaffold into $VAULT_DIR/rules (edit .config.yml to tune reminder interval)"
+else
+  warn "$VAULT_DIR/rules already exists — leaving rule files alone. Update .config.yml manually if needed."
 fi
 
 # 3. Global Claude Code instructions
 say "Installing global ~/.claude/CLAUDE.md"
-mkdir -p "$CLAUDE_DIR"
+run "mkdir -p \"$CLAUDE_DIR\""
 if [[ -f "$CLAUDE_DIR/CLAUDE.md" && ! -f "$CLAUDE_DIR/CLAUDE.md.obsidian-memory.bak" ]]; then
-  cp "$CLAUDE_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md.obsidian-memory.bak"
+  run "cp \"$CLAUDE_DIR/CLAUDE.md\" \"$CLAUDE_DIR/CLAUDE.md.obsidian-memory.bak\""
   warn "existing ~/.claude/CLAUDE.md backed up to CLAUDE.md.obsidian-memory.bak"
 fi
-cp "$REPO_DIR/claude-global/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
+run "cp \"$REPO_DIR/claude-global/CLAUDE.md\" \"$CLAUDE_DIR/CLAUDE.md\""
 ok "memory commands loaded in every Claude Code session on this machine"
 
 # 4. Scripts
 say "Installing scripts to $SCRIPTS_DIR"
-mkdir -p "$SCRIPTS_DIR" "$EXPORT_DIR"/{code,web}
-cp "$REPO_DIR/scripts/"*.py "$SCRIPTS_DIR/"
-cp "$REPO_DIR/scripts/"*.sh "$SCRIPTS_DIR/"
-chmod +x "$SCRIPTS_DIR"/*.sh "$SCRIPTS_DIR"/*.py 2>/dev/null || true
+run "mkdir -p \"$SCRIPTS_DIR\""
+run "cp \"$REPO_DIR/scripts/\"*.py \"$SCRIPTS_DIR/\""
+run "cp \"$REPO_DIR/scripts/\"*.sh \"$SCRIPTS_DIR/\""
+run "chmod +x \"$SCRIPTS_DIR\"/*.sh \"$SCRIPTS_DIR\"/*.py 2>/dev/null || true"
 ok "scripts installed ($(ls "$REPO_DIR/scripts" | wc -l) files)"
 
-# 4b. Hooks in ~/.claude/settings.json
-say "Wiring hooks into $CLAUDE_DIR/settings.json"
+# 4b. Hooks + statusLine in ~/.claude/settings.json
+say "Wiring hooks + statusline into $CLAUDE_DIR/settings.json (scripts dir: $SCRIPTS_DIR)"
 if command -v jq >/dev/null 2>&1; then
   target="$CLAUDE_DIR/settings.json"
   src="$REPO_DIR/claude-global/settings.json"
-  if [[ -f "$target" ]]; then
+  # Template the scripts dir into the source JSON (uses ~/scripts by default in repo).
+  tmp_src="$(mktemp)"
+  sed "s|~/scripts|${SCRIPTS_DIR/#$HOME/~}|g; s|\$HOME/scripts|$SCRIPTS_DIR|g" "$src" > "$tmp_src"
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    warn "DRY RUN — would merge these hooks into $target:"
+    jq . "$tmp_src"
+  elif [[ -f "$target" ]]; then
     cp "$target" "$target.obsidian-memory.bak"
-    jq -s '.[0].hooks = .[1].hooks | .[0]' "$target" "$src" > "$target.tmp" \
+    jq -s '.[0].hooks = .[1].hooks | .[0].statusLine = .[1].statusLine | .[0]' "$target" "$tmp_src" > "$target.tmp" \
       && mv "$target.tmp" "$target" \
-      && ok "merged hooks into existing settings.json (backup: settings.json.obsidian-memory.bak)"
+      && ok "merged hooks + statusline into existing settings.json (backup: settings.json.obsidian-memory.bak)"
   else
-    cp "$src" "$target"
-    ok "installed fresh settings.json with hooks"
+    cp "$tmp_src" "$target"
+    ok "installed fresh settings.json with hooks + statusline"
   fi
-  warn "Restart Claude Code for hook changes to take effect"
+  rm -f "$tmp_src"
+  [[ $DRY_RUN -eq 0 ]] && warn "Restart Claude Code for hook changes to take effect"
 else
   warn "jq not installed — skipping settings.json merge. Install jq and re-run, or copy hooks block manually from claude-global/settings.json"
+fi
+
+# 4c. Seed ~/vault/rules.md
+if [[ -x "$SCRIPTS_DIR/rules_rebuild.py" ]]; then
+  run "VAULT_DIR=\"$VAULT_DIR\" \"$SCRIPTS_DIR/rules_rebuild.py\" || true"
 fi
 
 # 5. pip installs
@@ -148,15 +193,15 @@ fi
 if [[ $INSTALL_PIP -eq 1 ]]; then
   if [[ -n "$PIP" ]]; then
     say "Installing Python tools (graphifyy, claude-conversation-extractor)"
-    "$PIP" install --user --upgrade graphifyy claude-conversation-extractor \
-      || warn "graphify/extractor install failed — retry manually"
+    run "\"$PIP\" install --user --upgrade graphifyy claude-conversation-extractor \
+      || warn 'graphify/extractor install failed — retry manually'"
   else
     warn "pip not found — skipping Python tools"
   fi
   if [[ $INSTALL_EMBED -eq 1 && -n "$PIP" ]]; then
     say "Installing semantic search deps (fastembed, sqlite-vec) — ~150MB"
-    "$PIP" install --user --upgrade fastembed sqlite-vec \
-      || warn "embedding deps install failed — /recall will not work until fixed"
+    run "\"$PIP\" install --user --upgrade fastembed sqlite-vec \
+      || warn 'embedding deps install failed — /recall will not work until fixed'"
   elif [[ $INSTALL_EMBED -eq 0 ]]; then
     warn "semantic search deps skipped (--no-embed)"
   fi
@@ -164,18 +209,7 @@ else
   warn "--no-pip set, skipping all Python tools"
 fi
 
-# 6. Cron
-if [[ $INSTALL_CRON -eq 1 ]]; then
-  if command -v crontab >/dev/null 2>&1; then
-    say "Installing daily chat-sync cron (22:00)"
-    line="0 22 * * * $SCRIPTS_DIR/sync_claude_obsidian.sh"
-    ( crontab -l 2>/dev/null | grep -v -F "$SCRIPTS_DIR/sync_claude_obsidian.sh" ; echo "$line" ) | crontab -
-    ok "cron installed"
-  else
-    warn "crontab not available — use Task Scheduler on Windows"
-  fi
-fi
-
+if [[ $DRY_RUN -eq 0 ]]; then
 cat <<EOF
 
 Setup complete.
@@ -196,3 +230,4 @@ Next steps:
   5. Start a Claude Code session and try /resume, /recall, /save.
 
 EOF
+fi

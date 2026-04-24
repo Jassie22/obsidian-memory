@@ -1,3 +1,15 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Teaching / session / meeting prep — local only, not public
+meeting/
+sessions/
+
+# Internal planning + specs — not relevant to engineers cloning the repo
+docs/superpowers/
+
+# Any leaked vault-style project notes must never land in this repo
+arc/
+truenode/
+cinesynth/

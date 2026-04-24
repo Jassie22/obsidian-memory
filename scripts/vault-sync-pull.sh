@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Session-start: pull vault + obsidian-memory. Throttled 12h. Silent on success.
+# SessionStart hook: `git pull --ff-only` in ~/vault and ~/obsidian-memory,
+# throttled to once per 12h per repo (timestamp in ~/.claude/.last-pull).
+#
+# Hook JSON contract (stdin): unused — SessionStart carries no tool context.
 set -u
 LAST="$HOME/.claude/.last-pull"
 NOW=$(date +%s)

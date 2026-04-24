@@ -1,4 +1,4 @@
-#!/home/jas/.venvs/vault/bin/python3
+#!/usr/bin/env python3
 """
 Rebuild every _MOC.md from note frontmatter + filesystem state.
 
@@ -20,13 +20,33 @@ Env:
   VAULT_DIR   override vault path (default ~/vault)
 """
 from __future__ import annotations
-import os, re, sys, pathlib, datetime
+import os, re, sys, pathlib, datetime, time
 
 VAULT = pathlib.Path(os.environ.get("VAULT_DIR", pathlib.Path.home() / "vault"))
 GROUPS_FILE = VAULT / ".groups"
 TODAY = datetime.date.today().isoformat()
 
 FM_RE = re.compile(r"\A---\n(.*?)\n---\n?(.*)\Z", re.DOTALL)
+SAFE_AGE_SECONDS = 24 * 3600
+SKIP_DELETE_NAMES = {"_MOC.md", "rules.md", "README.md"}
+SKIP_DELETE_PARENTS = {"templates", "rules"}
+
+
+def is_empty_body(body: str) -> bool:
+    """Return True if the body has no real content (only whitespace / blank lines)."""
+    return body.strip() == ""
+
+
+def should_delete_empty(path: pathlib.Path) -> bool:
+    if path.name in SKIP_DELETE_NAMES:
+        return False
+    if any(parent.name in SKIP_DELETE_PARENTS for parent in path.parents):
+        return False
+    try:
+        age = time.time() - path.stat().st_mtime
+    except OSError:
+        return False
+    return age >= SAFE_AGE_SECONDS
 
 
 def parse_frontmatter(text: str):
@@ -80,6 +100,11 @@ def collect_notes(paths: list[pathlib.Path]) -> tuple[list[dict], list[dict]]:
             except OSError:
                 continue
             fm, body = parse_frontmatter(text)
+            if is_empty_body(body):
+                if should_delete_empty(p):
+                    p.unlink()
+                    print(f"deleted empty note: {p.relative_to(VAULT)}", file=sys.stderr)
+                continue
             entry = {
                 "stem": p.stem,
                 "title": fm.get("title", p.stem),
