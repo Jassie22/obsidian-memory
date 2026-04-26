@@ -20,6 +20,7 @@ SCRIPTS_DIR="$HOME/scripts"
 
 INSTALL_PIP=1
 INSTALL_EMBED=1
+INSTALL_OBSIDIAN=1
 MEM_GROUPS=""
 
 DRY_RUN=0
@@ -27,6 +28,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-pip)      INSTALL_PIP=0 ;;
     --no-embed)    INSTALL_EMBED=0 ;;
+    --no-obsidian) INSTALL_OBSIDIAN=0 ;;
     --vault)       VAULT_DIR="$2"; shift ;;
     --groups)      MEM_GROUPS="$2"; shift ;;
     --scripts-dir) SCRIPTS_DIR="$2"; shift ;;
@@ -105,6 +107,72 @@ ensure_jq() {
       ;;
     *)
       warn "unknown OS '$uname_s' — install jq manually"
+      ;;
+  esac
+  return 1
+}
+
+# Best-effort Obsidian desktop install. Returns 0 if already present or
+# successfully installed, 1 otherwise. Headless servers should opt out
+# via --no-obsidian.
+ensure_obsidian() {
+  local uname_s
+  uname_s="$(uname -s 2>/dev/null || echo unknown)"
+  # Detect existing install across OSes.
+  case "$uname_s" in
+    Darwin)
+      [[ -d "/Applications/Obsidian.app" || -d "$HOME/Applications/Obsidian.app" ]] && return 0
+      ;;
+    Linux)
+      command -v obsidian >/dev/null 2>&1 && return 0
+      flatpak info md.obsidian.Obsidian >/dev/null 2>&1 && return 0
+      snap list obsidian >/dev/null 2>&1 && return 0
+      ;;
+    MINGW*|MSYS*|CYGWIN*)
+      [[ -f "$HOME/AppData/Local/Obsidian/Obsidian.exe" || -f "$LOCALAPPDATA/Obsidian/Obsidian.exe" || -f "/c/Program Files/Obsidian/Obsidian.exe" ]] && return 0
+      ;;
+  esac
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    printf '\033[1;35m dry\033[0m would install Obsidian via OS package manager\n'
+    return 0
+  fi
+  say "Obsidian not found — attempting auto-install (skip with --no-obsidian)"
+  case "$uname_s" in
+    Darwin)
+      if command -v brew >/dev/null 2>&1; then
+        brew install --cask obsidian && return 0
+      else
+        warn "brew not found — download Obsidian from https://obsidian.md/download"
+      fi
+      ;;
+    Linux)
+      if command -v flatpak >/dev/null 2>&1; then
+        flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
+        flatpak install -y --user flathub md.obsidian.Obsidian && return 0
+      elif command -v snap >/dev/null 2>&1; then
+        sudo snap install obsidian --classic && return 0
+      else
+        warn "no flatpak/snap — grab the AppImage from https://obsidian.md/download"
+      fi
+      ;;
+    MINGW*|MSYS*|CYGWIN*)
+      if command -v scoop >/dev/null 2>&1; then
+        scoop bucket add extras 2>/dev/null || true
+        scoop install obsidian && return 0
+      fi
+      if command -v winget >/dev/null 2>&1 || command -v winget.exe >/dev/null 2>&1; then
+        winget install -e --id Obsidian.Obsidian --accept-source-agreements --accept-package-agreements && return 0
+      elif cmd.exe //c "where winget" >/dev/null 2>&1; then
+        cmd.exe //c "winget install -e --id Obsidian.Obsidian --accept-source-agreements --accept-package-agreements" && return 0
+      fi
+      if command -v choco >/dev/null 2>&1; then
+        choco install obsidian -y && return 0
+      fi
+      warn "no winget / scoop / choco — download from https://obsidian.md/download"
+      ;;
+    *)
+      warn "unknown OS '$uname_s' — install Obsidian from https://obsidian.md/download"
       ;;
   esac
   return 1
@@ -243,6 +311,13 @@ fi
 # 4c. Seed ~/vault/rules.md
 if [[ -x "$SCRIPTS_DIR/rules_rebuild.py" ]]; then
   run "VAULT_DIR=\"$VAULT_DIR\" \"$SCRIPTS_DIR/rules_rebuild.py\" || true"
+fi
+
+# 4d. Obsidian desktop app (optional GUI — skip with --no-obsidian for headless)
+if [[ $INSTALL_OBSIDIAN -eq 1 ]]; then
+  ensure_obsidian || true
+else
+  warn "--no-obsidian set, skipping Obsidian install"
 fi
 
 # 5. pip installs
