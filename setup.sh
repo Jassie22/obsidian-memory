@@ -51,6 +51,65 @@ run() {
   fi
 }
 
+# Best-effort jq install across macOS / Linux / Windows (Git Bash, MSYS).
+# Returns 0 if jq is already present or successfully installed, 1 otherwise.
+ensure_jq() {
+  if command -v jq >/dev/null 2>&1; then
+    return 0
+  fi
+  if [[ $DRY_RUN -eq 1 ]]; then
+    printf '\033[1;35m dry\033[0m would install jq via OS package manager\n'
+    return 0
+  fi
+  say "jq not found — attempting auto-install"
+  local uname_s
+  uname_s="$(uname -s 2>/dev/null || echo unknown)"
+  case "$uname_s" in
+    Darwin)
+      if command -v brew >/dev/null 2>&1; then
+        brew install jq && return 0
+      else
+        warn "brew not found on macOS — install Homebrew or jq manually"
+      fi
+      ;;
+    Linux)
+      if command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get update -y && sudo apt-get install -y jq && return 0
+      elif command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y jq && return 0
+      elif command -v yum >/dev/null 2>&1; then
+        sudo yum install -y jq && return 0
+      elif command -v pacman >/dev/null 2>&1; then
+        sudo pacman -S --noconfirm jq && return 0
+      elif command -v apk >/dev/null 2>&1; then
+        sudo apk add --no-cache jq && return 0
+      else
+        warn "no recognised Linux package manager — install jq manually"
+      fi
+      ;;
+    MINGW*|MSYS*|CYGWIN*)
+      # Windows under Git Bash / MSYS2. Try scoop (per-user, no admin) first,
+      # then winget, then choco. Each tool may need an absolute or cmd.exe call.
+      if command -v scoop >/dev/null 2>&1; then
+        scoop install jq && return 0
+      fi
+      if command -v winget >/dev/null 2>&1 || command -v winget.exe >/dev/null 2>&1; then
+        winget install -e --id jqlang.jq --accept-source-agreements --accept-package-agreements && return 0
+      elif cmd.exe //c "where winget" >/dev/null 2>&1; then
+        cmd.exe //c "winget install -e --id jqlang.jq --accept-source-agreements --accept-package-agreements" && return 0
+      fi
+      if command -v choco >/dev/null 2>&1; then
+        choco install jq -y && return 0
+      fi
+      warn "no winget / scoop / choco found — install jq manually (https://jqlang.github.io/jq/download/)"
+      ;;
+    *)
+      warn "unknown OS '$uname_s' — install jq manually"
+      ;;
+  esac
+  return 1
+}
+
 # 0. Groups
 if [[ -z "$MEM_GROUPS" ]]; then
   if [[ -f "$VAULT_DIR/.groups" ]]; then
@@ -155,6 +214,7 @@ ok "scripts installed ($(ls "$REPO_DIR/scripts" | wc -l) files)"
 
 # 4b. Hooks + statusLine in ~/.claude/settings.json
 say "Wiring hooks + statusline into $CLAUDE_DIR/settings.json (scripts dir: $SCRIPTS_DIR)"
+ensure_jq || true
 if command -v jq >/dev/null 2>&1; then
   target="$CLAUDE_DIR/settings.json"
   src="$REPO_DIR/claude-global/settings.json"
