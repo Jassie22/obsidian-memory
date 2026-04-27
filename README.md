@@ -123,6 +123,8 @@ Defined in `claude-global/CLAUDE.md` and available in every Claude Code session:
 
 Claude also **proactively writes notes** (background, via subagent) when it encounters decisions, gotchas, external context, or corrections — and dedupes against existing notes using `vault_search.py find-similar` before creating.
 
+> **You don't have to literally type these as slash commands.** Only `/add-rule` and `/clean-empty` are wired as Claude Code slash commands (under `claude-global/commands/`). The five above are *procedures* documented in `claude-global/CLAUDE.md` (which setup.sh symlinks/copies to `~/.claude/CLAUDE.md`, auto-loaded every session). So **"can you check the vault for what we decided about X"** runs the same code path as `/recall X`, and **"log this session and push"** = `/save`. Use whichever phrasing feels natural — Claude reads the rules and follows them.
+
 ---
 
 ## Semantic search (RAG layer)
