@@ -88,7 +88,7 @@ Use **`tags:`** for categorisation (`decision`, `gotcha`, `feature`, `reference`
 | `inbox/`         | Raw captures from `/capture`, awaiting promotion          |
 | `templates/`     | Note templates (skipped by search + MOC regen)            |
 
-That's it. No `architecture/`, `features/`, `data/`, `pipeline/`, `fleeting/`, `references/`, `chats/`, `graphify/` sub-folders — categorisation lives in `tags:`, not the path.
+`setup.sh` also seeds `<group>/{architecture,features,data,pipeline}` and a top-level `fleeting/`, `references/`, `chats/{code,web}/`, `graphify/` as starting scaffolding. **They're optional** — categorisation works just as well in `tags:`. Use whichever subfolders make sense for your work, leave the rest empty, or delete them. Don't invent *new* top-level folders without thinking about MOC regen and search exclusions in `vault_search.py`.
 
 ### MOC (Map of Contents)
 
