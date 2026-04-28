@@ -196,16 +196,25 @@ Superseded decisions: never delete. Add `status: superseded-by [[new-note]]` to 
 
 ### Background spawn pattern
 
+Before spawning, capture the repo slug for the active session: `REPO_SLUG="$(~/scripts/vault_repo_slug.sh)"` — empty if the session isn't inside a git repo. If non-empty, the note's `tags:` should include `repo/$REPO_SLUG` (alongside the group tag) so the note is filterable by repo in Obsidian's tag tree and by `/recall`.
+
 ```
 Agent(
   description: "vault note: <slug> (<vault>)",
   subagent_type: "general-purpose",
   run_in_background: true,
-  prompt: "<self-contained: fact to record, target VAULT (personal or company) and absolute path, group, author from ~/scripts/vault_author.sh, triggering event, run find-similar --vault <vault> first, redact secrets, re-index, auto-commit+push that vault only>"
+  prompt: "<self-contained: fact to record, target VAULT (personal or company) and absolute path, group, author from ~/scripts/vault_author.sh, repo slug from ~/scripts/vault_repo_slug.sh (omit the repo/<slug> tag if empty), triggering event, run find-similar --vault <vault> first, redact secrets, re-index, auto-commit+push that vault only>"
 )
 ```
 
-The spawn prompt MUST include the resolved vault path explicitly — never let the background agent re-resolve it, since by the time it runs the user may have switched repos.
+The spawn prompt MUST include the resolved vault path AND the resolved repo slug (or "(none)") explicitly — never let the background agent re-resolve them, since by the time it runs the user may have switched repos.
+
+**Tag convention recap:**
+
+```yaml
+tags: [<group>, repo/<slug>]   # repo tag only when the session was in a git repo
+tags: [<group>]                # otherwise — meta notes, cross-repo decisions, etc.
+```
 
 ### Enforcement
 

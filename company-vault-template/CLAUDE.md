@@ -73,6 +73,7 @@ Adding a new repo to the team's mapping is a one-line PR to this file — every 
 - One concept per permanent note (atomicity).
 - Minimum 2 wikilinks per note.
 - Tag with the group (`#<group>`) plus topic tags (`decision`, `gotcha`, `runbook`, `feature`, `reference`).
+- **Repo tag** (optional): when the note is specifically about one repo, add `repo/<slug>` — e.g. `repo/arc-frontend`. Resolve the slug from the current working directory with `~/scripts/vault_repo_slug.sh` (empty if not in a git repo, in which case skip the tag). Cross-repo / cross-cutting notes don't need it. Obsidian's tag tree shows `repo/` as a sub-branch so all notes for a given repo are one click away.
 - `description:` field — one sentence ≤140 chars, used by the MOC renderer.
 
 ### Standard frontmatter
