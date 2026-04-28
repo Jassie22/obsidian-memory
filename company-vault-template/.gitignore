@@ -1,0 +1,15 @@
+# Semantic search index — binary, rebuilt per-device
+.index.db
+.index.db-journal
+.index.db-wal
+.index.db-shm
+
+# Obsidian workspace state (per-device)
+.obsidian/workspace*
+.obsidian/cache
+
+# MOCs — regenerated locally on every /save. Tracking them in git
+# guarantees merge conflicts when 5 teammates push within minutes of each
+# other. Each device rebuilds via ~/scripts/vault_rebuild_mocs.py on demand.
+_MOC.md
+**/_MOC.md

@@ -8,9 +8,17 @@
 #
 # Injection is stdout — Claude Code attaches it as additional context for
 # this turn. Keep the footprint small.
+#
+# Rules live in the **personal** vault only — they are per-user preferences,
+# not team-wide defaults. If no private vault is registered, this hook is a
+# silent no-op.
 set -u
 
-VAULT="${VAULT_DIR:-$HOME/vault}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/vault_registry.sh"
+
+VAULT="$(vault_personal_path)"
+[[ -z "$VAULT" ]] && VAULT="${VAULT_DIR:-$HOME/vault}"
 RULES_DIR="$VAULT/rules"
 CONFIG="$RULES_DIR/.config.yml"
 [[ -d "$RULES_DIR" ]] || exit 0
@@ -35,15 +43,20 @@ if (( counter != 1 )) && (( counter % interval != 0 )); then
   exit 0
 fi
 
-# Active scopes: global + (vault if cwd in vault) + (group if ./CLAUDE.md group matches)
+# Active scopes: global + (vault if cwd in any registered vault) + group.
 scopes=("global")
-case "$cwd" in
-  "$VAULT"*) scopes+=("vault") ;;
-esac
-if [[ -f "$cwd/CLAUDE.md" && -f "$VAULT/.groups" ]]; then
+if vault_for_path "$cwd" >/dev/null 2>&1; then
+  scopes+=("vault")
+fi
+if [[ -f "$cwd/CLAUDE.md" ]]; then
   group=$(grep -E '^group:' "$cwd/CLAUDE.md" 2>/dev/null | head -1 | awk '{print $2}')
-  if [[ -n "${group:-}" ]] && grep -qxF "$group" "$VAULT/.groups"; then
-    scopes+=("$group")
+  if [[ -n "${group:-}" ]]; then
+    while IFS=$'\t' read -r vname vpath vrole; do
+      if [[ -f "$vpath/.groups" ]] && grep -qxF "$group" "$vpath/.groups" 2>/dev/null; then
+        scopes+=("$group")
+        break
+      fi
+    done < <(vault_list_rows)
   fi
 fi
 
@@ -81,7 +94,7 @@ for f in "${rules_to_inject[@]}"; do
   rule_line=$(awk '/^\*\*Rule:\*\*/{sub(/^\*\*Rule:\*\* */,""); print; exit}' "$f")
   printf -- '- **[%s]** %s — %s\n' "$scope" "$title" "${rule_line:-see $(basename "$f")}"
 done
-printf '\nFull rule bodies: ~/vault/rules/ · edit config at ~/vault/rules/.config.yml\n'
+printf '\nFull rule bodies: %s/rules/ · edit config at %s/rules/.config.yml\n' "$VAULT" "$VAULT"
 printf '</rules-reminder>\n'
 
 exit 0

@@ -1,0 +1,11 @@
+# Company groups — one slug per line, kebab-case. Committed and shared
+# across the team. Adding a group here is a deliberate team-wide decision —
+# every teammate picks it up on their next session-start pull.
+#
+# Personal-only groups (side projects, journaling, etc.) belong in
+# ~/vault/.groups, not here.
+#
+# Examples:
+# arc
+# truenode
+# cinesynth

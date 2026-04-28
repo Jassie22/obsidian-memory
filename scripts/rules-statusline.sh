@@ -6,10 +6,14 @@
 #   .session_id             (for turn counter lookup)
 #   .workspace.current_dir  (for scope resolution)
 #
-# Silent if ~/vault/rules/ doesn't exist (not yet set up).
+# Silent if no personal vault is registered or its rules/ dir doesn't exist.
 set -u
 
-VAULT="${VAULT_DIR:-$HOME/vault}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/vault_registry.sh"
+
+VAULT="$(vault_personal_path)"
+[[ -z "$VAULT" ]] && VAULT="${VAULT_DIR:-$HOME/vault}"
 RULES_DIR="$VAULT/rules"
 CONFIG="$RULES_DIR/.config.yml"
 [[ -d "$RULES_DIR" ]] || exit 0
@@ -25,16 +29,20 @@ payload="$(cat)"
 session_id=$(printf '%s' "$payload" | jq -r '.session_id // "default"' 2>/dev/null)
 cwd=$(printf '%s' "$payload" | jq -r '.workspace.current_dir // empty' 2>/dev/null)
 
-# Active scopes for this cwd: always "global"; add "vault" if inside vault;
-# add group if ./CLAUDE.md in cwd has a `group:` field matching ~/vault/.groups
+# Active scopes: global + (vault if cwd in any registered vault) + group.
 scopes=("global")
-case "$cwd" in
-  "$VAULT"*) scopes+=("vault") ;;
-esac
-if [[ -f "$cwd/CLAUDE.md" && -f "$VAULT/.groups" ]]; then
+if vault_for_path "$cwd" >/dev/null 2>&1; then
+  scopes+=("vault")
+fi
+if [[ -f "$cwd/CLAUDE.md" ]]; then
   group=$(grep -E '^group:' "$cwd/CLAUDE.md" 2>/dev/null | head -1 | awk '{print $2}')
-  if [[ -n "${group:-}" ]] && grep -qxF "$group" "$VAULT/.groups"; then
-    scopes+=("$group")
+  if [[ -n "${group:-}" ]]; then
+    while IFS=$'\t' read -r vname vpath vrole; do
+      if [[ -f "$vpath/.groups" ]] && grep -qxF "$group" "$vpath/.groups" 2>/dev/null; then
+        scopes+=("$group")
+        break
+      fi
+    done < <(vault_list_rows)
   fi
 fi
 

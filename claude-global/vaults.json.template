@@ -1,0 +1,20 @@
+{
+  "_comment": "Lives at ~/.claude/vaults.json. The single source of truth for which vaults Claude Code should sync, search, and route notes through. setup.sh writes this file; you can also edit by hand to add/remove vaults or change the author name. Roles: 'private' (personal — logs, captures, rules; one per machine, never shared with teammates) and 'shared' (company — durable team-wide notes; same git remote across teammates). The 'author' field is stamped into every new note's frontmatter — set it to a name your teammates will recognise, since the company vault becomes co-authored.",
+  "author": "Your Name",
+  "schema_version": 1,
+  "vaults": [
+    {
+      "name": "personal",
+      "path": "~/vault",
+      "role": "private",
+      "default_for": ["log", "capture", "rule", "draft"]
+    },
+    {
+      "name": "company",
+      "path": "~/company-vault",
+      "role": "shared",
+      "remote": "git@github.com:yourorg/company-vault.git",
+      "default_for": ["decision", "runbook", "gotcha", "permanent"]
+    }
+  ]
+}

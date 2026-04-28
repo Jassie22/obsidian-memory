@@ -1,19 +1,43 @@
-# Vault — Instructions for Claude Code
+# Personal Vault — Instructions for Claude Code
 
-> This file lives at `~/vault/CLAUDE.md` and is the **global rulebook** for everything Claude Code does inside the vault.
+> This file lives at `~/vault/CLAUDE.md` and is the rulebook for everything Claude Code does inside the **personal** vault. Yours alone — not pushed to a shared remote unless you explicitly want one.
 
 ## What this vault is
 
-A centralized knowledge base for all your projects. Persistent memory across Claude Code sessions on every device.
+Your personal knowledge base. Logs, captures, half-formed proactive notes, and per-user behavior rules.
+
+If you're on a team, you may also have a **company vault** at `~/company-vault` (role: `shared`, same git remote across teammates) — see `~/.claude/vaults.json` for the registry. Durable team-wide notes (decisions, runbooks, gotchas) live there. This vault stays yours.
+
+## What goes here vs. the company vault
+
+| Note kind | Personal (this) vault | Company vault |
+|-----------|------------------------|---------------|
+| Daily session logs (`/save`) | ✅ | |
+| Captures (`/capture`) — raw thoughts | ✅ | |
+| Inbox (awaiting promotion) | ✅ | |
+| Personal rules / preferences | ✅ | |
+| Half-formed proactive notes (default) | ✅ | |
+| Side-project / journal groups | ✅ | |
+| Architecture decisions (cross-team impact) | | ✅ |
+| Runbooks | | ✅ |
+| Gotchas + fixes the team will rediscover | | ✅ |
+| Cross-group permanent atomic notes | | ✅ |
+
+When the kind is ambiguous, default to this vault. Promote to company later via `/promote` once a note proves durable.
 
 ## Project groups
 
 Groups are user-defined. The active list lives in `~/vault/.groups` (one slug per line). Each group has its own flat folder under the vault root — no prescribed sub-folders.
 
-Claude Code picks the group for a given repo based on:
+Personal-only groups (journaling, side projects, hobbies) live here. Team-wide project groups normally live in `~/company-vault/.groups`. A group can exist in both vaults — for example, `~/company-vault/arc/` holds team decisions about Arc, while `~/vault/arc/logs/` holds your personal session logs working on Arc.
+
+Claude Code picks the group for a given repo via `~/scripts/vault_resolve_group.sh`:
+
 1. `group:` field in the repo's own `CLAUDE.md`.
-2. Path match: `.../<group>/...` where `<group>` is listed in `.groups`.
-3. Prompting the user once and remembering for the session.
+2. `~/company-vault/.repo-map.json` mapping (team-wide).
+3. `~/vault/.repo-map.json` mapping (personal additions / fork overrides).
+4. Path match: `.../<group>/...` where `<group>` is in any vault's `.groups`.
+5. Prompting the user once and caching to the personal map.
 
 Add a new group:
 
@@ -59,11 +83,14 @@ title: Note Name
 description: One-sentence hook used in the MOC.
 group: <group>          # must match a line in ~/vault/.groups, or "shared"
 tags: [<group>, topic1, topic2]
+author: <name>          # resolved by ~/scripts/vault_author.sh
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 status: active          # active | superseded | archived
 ---
 ```
+
+`author:` is consistent across personal and company vaults — useful when you eventually `/promote` a note to the company vault, since provenance is already attached.
 
 **Do not add a `type:` field** to arbitrary notes. `type:` is reserved for mechanical values that scripts branch on:
 
