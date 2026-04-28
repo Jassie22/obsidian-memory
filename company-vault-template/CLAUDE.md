@@ -92,7 +92,28 @@ status: active           # active | superseded | archived
 
 `author:` is **mandatory** in the company vault — 5 people writing here means provenance matters. Resolved from `~/.claude/vaults.json` `.author` field (set once at setup time). Don't make up an author; use `~/scripts/vault_author.sh` to resolve.
 
-When a note is meaningfully updated by someone other than the original author, append the new author to a comma-separated list: `author: Alex, Sam`. Bump `updated:` on every edit.
+When a note is meaningfully updated by someone other than the original author, append the new author to a comma-separated list (e.g. `author: <original>, <you>`). Bump `updated:` on every edit.
+
+### Co-author callouts (visual attribution in Obsidian)
+
+Edits go directly into the original note — no copies. To make multi-author contributions visible, wrap your additions in an author callout:
+
+```markdown
+> [!<your-name>] 2026-04-28
+> The bit you're adding or rewriting goes here. Multi-line is fine.
+> Quote the original line if you're reacting to it specifically.
+```
+
+Each teammate has a uniquely-coloured callout class (`.obsidian/snippets/authors.css`, auto-maintained by setup.sh). Colours are deterministic from the name — same name renders the same colour for every teammate, no coordination needed.
+
+When to use what:
+
+- **Sole author of a new note** — no callout. You're the only voice; just write.
+- **Small edits to someone else's note** (typo fix, link cleanup, fact correction) — append your name to frontmatter `author:` only. No callout needed.
+- **Adding new content to someone else's note** (a paragraph, a section, a counter-argument) — wrap your addition in `> [!<your-name>]`.
+- **Rewriting / restructuring** — use a `## Update YYYY-MM-DD (<your-name>)` heading instead of a callout. Heavier than callouts; reserved for the cases where prose changes substantially.
+
+The callouts only render in Obsidian. In raw Markdown viewers (GitHub, terminal `cat`) they appear as plain blockquote lines — readable, just not coloured.
 
 ### Folder semantics (company vault)
 

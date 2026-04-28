@@ -11,6 +11,7 @@
 #   ./setup.sh --no-personal-vault                   # skip personal vault entirely (company-only)
 #   ./setup.sh --company-vault ~/co-brain            # also seed a shared company vault
 #   ./setup.sh --no-company-vault                    # skip the company-vault prompt
+#   ./setup.sh --with-highlightr                     # also install Highlightr plugin (per-author highlight colors)
 #   ./setup.sh --author "Your Name"                  # name for the `author:` frontmatter field
 #   ./setup.sh --scripts-dir ~/bin/claude            # custom scripts dir (default ~/scripts)
 #   ./setup.sh --dry-run                             # print planned actions, write nothing
@@ -29,6 +30,7 @@ VAULT_DIR="${VAULT_DIR:-$HOME/vault}"
 COMPANY_VAULT_DIR="${COMPANY_VAULT_DIR:-}"
 INSTALL_COMPANY_VAULT=auto       # auto | yes | no
 INSTALL_PERSONAL_VAULT=yes       # yes | no
+INSTALL_HIGHLIGHTR=no            # yes | no — opt-in via --with-highlightr
 AUTHOR_NAME="${VAULT_AUTHOR:-}"
 CLAUDE_DIR="$HOME/.claude"
 SCRIPTS_DIR="$HOME/scripts"
@@ -48,6 +50,7 @@ while [[ $# -gt 0 ]]; do
     --no-personal-vault) INSTALL_PERSONAL_VAULT=no ;;
     --company-vault)     COMPANY_VAULT_DIR="$2"; INSTALL_COMPANY_VAULT=yes; shift ;;
     --no-company-vault)  INSTALL_COMPANY_VAULT=no ;;
+    --with-highlightr)   INSTALL_HIGHLIGHTR=yes ;;
     --author)            AUTHOR_NAME="$2"; shift ;;
     --groups)            MEM_GROUPS="$2"; shift ;;
     --scripts-dir)       SCRIPTS_DIR="$2"; shift ;;
@@ -442,6 +445,28 @@ if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
   if [[ ! -f "$COMPANY_VAULT_DIR/.repo-map.json" && -f "$REPO_DIR/company-vault-template/.repo-map.json.template" ]]; then
     run "cp \"$REPO_DIR/company-vault-template/.repo-map.json.template\" \"$COMPANY_VAULT_DIR/.repo-map.json\""
     warn "$COMPANY_VAULT_DIR/.repo-map.json seeded from template — edit it with your real GitHub remotes (e.g. github.com/yourorg/arc-*) so Claude can auto-detect groups"
+  fi
+
+  # Author callout — register this teammate's CSS class in the company vault.
+  # Deterministic color from name → everyone agrees without coordination.
+  if [[ -x "$SCRIPTS_DIR/vault_register_callout.sh" ]]; then
+    run "\"$SCRIPTS_DIR/vault_register_callout.sh\" \"$AUTHOR_NAME\" \"$COMPANY_VAULT_DIR\""
+  fi
+
+  # Optional: download the Highlightr community plugin into the shared
+  # .obsidian/plugins/ tree so every teammate gets it on next pull.
+  if [[ "$INSTALL_HIGHLIGHTR" == "yes" ]]; then
+    say "Installing Highlightr plugin into company vault"
+    plugin_dir="$COMPANY_VAULT_DIR/.obsidian/plugins/highlightr-plugin"
+    if [[ ! -f "$plugin_dir/main.js" ]]; then
+      run "mkdir -p \"$plugin_dir\""
+      run "curl -fsSL -o \"$plugin_dir/manifest.json\" https://github.com/chetachiezikeuzor/Highlightr-Plugin/releases/latest/download/manifest.json"
+      run "curl -fsSL -o \"$plugin_dir/main.js\"       https://github.com/chetachiezikeuzor/Highlightr-Plugin/releases/latest/download/main.js"
+      run "curl -fsSL -o \"$plugin_dir/styles.css\"    https://github.com/chetachiezikeuzor/Highlightr-Plugin/releases/latest/download/styles.css || true"
+      ok "Highlightr installed — Obsidian will prompt to trust on first run"
+    else
+      ok "Highlightr already installed at $plugin_dir"
+    fi
   fi
 fi
 
