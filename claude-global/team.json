@@ -1,7 +1,7 @@
 {
   "_comment": "Team config — committed to obsidian-memory so teammates discover the company vault automatically. Edit `company_vault_url` once when the GitHub repo exists; everyone who clones obsidian-memory after that gets one-command onboarding via `setup.sh --author \"Name\"` (no flags needed for the company vault). The clone URL itself isn't a secret — the repo it points at is private, so only authorized teammates can actually clone it.",
   "org": "arc-simulations",
-  "company_vault_url": "git@github.com:arc-simulations/vault.git",
+  "company_vault_url": "git@github.com:arc-simulations/arc-vault.git",
   "company_vault_default_path": "~/company-vault",
   "company_vault_default_branch": "main"
 }

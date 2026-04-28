@@ -399,7 +399,7 @@ cd ~/obsidian-memory && ./setup.sh --author "Your Name"
 
 The script:
 
-1. Reads `claude-global/team.json` and asks "Clone the team vault to `~/company-vault` now? [Y/n]" — answer Y. It clones from `git@github.com:arc-simulations/vault.git` for you.
+1. Reads `claude-global/team.json` and asks "Clone the team vault to `~/company-vault` now? [Y/n]" — answer Y. It clones from `git@github.com:arc-simulations/arc-vault.git` for you.
 2. Creates your **personal** vault at `~/vault` (you'll be prompted for personal-vault groups — `journal`, `side-projects`, etc. — these are yours alone, not shared).
 3. Writes `~/.claude/vaults.json` so every Claude Code session knows about both vaults.
 4. Wires hooks into `~/.claude/settings.json`.
@@ -420,7 +420,7 @@ cd ~/code/<some-arc-simulations-repo>
 ~/scripts/vault_resolve_group.sh    # should print the right group from company-vault/.repo-map.json
 ```
 
-If it falls through to the prompt, the team's `.repo-map.json` doesn't list this remote yet — open a one-line PR against `arc-simulations/vault` to add it.
+If it falls through to the prompt, the team's `.repo-map.json` doesn't list this remote yet — open a one-line PR against `arc-simulations/arc-vault` to add it.
 
 Restart Claude Code so hooks take effect, then try `/save` once and check `git log` in `~/company-vault` to confirm `author: <Your Name>` shows up correctly.
 
@@ -432,7 +432,7 @@ One person on the team (typically whoever created the company-vault repo) mainta
 
 ```json
 {
-  "company_vault_url": "git@github.com:arc-simulations/vault.git",
+  "company_vault_url": "git@github.com:arc-simulations/arc-vault.git",
   "company_vault_default_path": "~/company-vault",
   "company_vault_default_branch": "main"
 }
