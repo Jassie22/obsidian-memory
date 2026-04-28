@@ -212,7 +212,23 @@ if [[ -z "$AUTHOR_NAME" ]]; then
   fi
 fi
 
-# 0b. Company vault prompt (only on fresh installs without an existing decision).
+# 0b. Read team config (team.json) — committed to obsidian-memory by the
+# team's setup-owner so teammates discover the company vault without any
+# tribal knowledge. Three fields used: company_vault_url (clone target),
+# company_vault_default_path, company_vault_default_branch.
+TEAM_CONFIG="$REPO_DIR/claude-global/team.json"
+TEAM_VAULT_URL=""
+TEAM_VAULT_DEFAULT_PATH=""
+TEAM_VAULT_DEFAULT_BRANCH=""
+if [[ -f "$TEAM_CONFIG" ]] && command -v jq >/dev/null 2>&1; then
+  TEAM_VAULT_URL="$(jq -r '.company_vault_url // empty' "$TEAM_CONFIG" 2>/dev/null)"
+  TEAM_VAULT_DEFAULT_PATH="$(jq -r '.company_vault_default_path // empty' "$TEAM_CONFIG" 2>/dev/null)"
+  TEAM_VAULT_DEFAULT_BRANCH="$(jq -r '.company_vault_default_branch // "main"' "$TEAM_CONFIG" 2>/dev/null)"
+  # Expand a leading `~` in the default path.
+  TEAM_VAULT_DEFAULT_PATH="${TEAM_VAULT_DEFAULT_PATH/#\~/$HOME}"
+fi
+
+# 0c. Company vault prompt (only on fresh installs without an existing decision).
 if [[ "$INSTALL_COMPANY_VAULT" == "auto" ]]; then
   if [[ -f "$REGISTRY" ]] && command -v jq >/dev/null 2>&1; then
     existing_co="$(jq -r '.vaults[]? | select(.role=="shared") | .path' "$REGISTRY" 2>/dev/null | head -n1)"
@@ -225,19 +241,66 @@ if [[ "$INSTALL_COMPANY_VAULT" == "auto" ]]; then
 fi
 if [[ "$INSTALL_COMPANY_VAULT" == "auto" ]]; then
   echo
-  echo "Company vault (optional) — a second, *shared* vault for team-wide notes:"
-  echo "  · Same git remote across all teammates (5-person team typical)."
-  echo "  · Holds decisions, runbooks, gotchas, cross-group permanent notes."
-  echo "  · Personal vault stays for logs, captures, half-formed thoughts."
-  read -rp "Set up a company vault now? [y/N]: " yn
-  case "$yn" in
-    y|Y|yes|YES) INSTALL_COMPANY_VAULT=yes ;;
-    *)           INSTALL_COMPANY_VAULT=no  ;;
-  esac
+  if [[ -n "$TEAM_VAULT_URL" ]]; then
+    # team.json points at a real, already-created remote. Default the
+    # answer to YES — the friction now is "did the user remember to set
+    # up GitHub access?", not "do I want a company vault?".
+    echo "Team config found: $TEAM_VAULT_URL"
+    echo "  · Cloning this brings in the team's shared decisions/runbooks/gotchas."
+    echo "  · You'll need read access (SSH key authorised for the org if SSO is on)."
+    read -rp "Clone the team vault to ${TEAM_VAULT_DEFAULT_PATH:-\$HOME/company-vault} now? [Y/n]: " yn
+    case "$yn" in
+      n|N|no|NO) INSTALL_COMPANY_VAULT=no ;;
+      *)         INSTALL_COMPANY_VAULT=yes ;;
+    esac
+  else
+    echo "Company vault (optional) — a second, *shared* vault for team-wide notes:"
+    echo "  · Same git remote across all teammates (5-person team typical)."
+    echo "  · Holds decisions, runbooks, gotchas, cross-group permanent notes."
+    echo "  · Personal vault stays for logs, captures, half-formed thoughts."
+    read -rp "Set up a company vault now? [y/N]: " yn
+    case "$yn" in
+      y|Y|yes|YES) INSTALL_COMPANY_VAULT=yes ;;
+      *)           INSTALL_COMPANY_VAULT=no  ;;
+    esac
+  fi
 fi
 if [[ "$INSTALL_COMPANY_VAULT" == "yes" && -z "$COMPANY_VAULT_DIR" ]]; then
-  read -rp "Company vault path [\$HOME/company-vault]: " COMPANY_VAULT_DIR
-  COMPANY_VAULT_DIR="${COMPANY_VAULT_DIR:-$HOME/company-vault}"
+  default_co_path="${TEAM_VAULT_DEFAULT_PATH:-$HOME/company-vault}"
+  read -rp "Company vault path [$default_co_path]: " COMPANY_VAULT_DIR
+  COMPANY_VAULT_DIR="${COMPANY_VAULT_DIR:-$default_co_path}"
+fi
+
+# 0d. Auto-clone the team vault if team.json provided a URL and the target
+# directory doesn't exist yet (or exists empty). Failure here is non-fatal
+# — the user can clone manually and re-run setup. We avoid clobbering an
+# existing checkout: if the dir has a .git, we trust it and skip.
+if [[ "$INSTALL_COMPANY_VAULT" == "yes" && -n "$TEAM_VAULT_URL" ]]; then
+  if [[ -d "$COMPANY_VAULT_DIR/.git" ]]; then
+    ok "company vault already cloned at $COMPANY_VAULT_DIR — leaving it alone"
+  elif [[ -d "$COMPANY_VAULT_DIR" ]] && [[ -n "$(ls -A "$COMPANY_VAULT_DIR" 2>/dev/null)" ]]; then
+    warn "$COMPANY_VAULT_DIR exists and isn't empty but has no .git — not cloning. Move it aside and re-run, or let setup.sh seed templates here without cloning."
+  else
+    say "Cloning team vault from $TEAM_VAULT_URL → $COMPANY_VAULT_DIR"
+    if [[ $DRY_RUN -eq 1 ]]; then
+      printf '\033[1;35m dry\033[0m git clone -b %s %s %s\n' \
+        "${TEAM_VAULT_DEFAULT_BRANCH:-main}" "$TEAM_VAULT_URL" "$COMPANY_VAULT_DIR"
+    else
+      mkdir -p "$(dirname "$COMPANY_VAULT_DIR")"
+      if git clone --branch "${TEAM_VAULT_DEFAULT_BRANCH:-main}" \
+                   "$TEAM_VAULT_URL" "$COMPANY_VAULT_DIR" 2>&1; then
+        ok "cloned team vault — you should now have $(ls "$COMPANY_VAULT_DIR" | wc -l) entries"
+      else
+        warn "clone failed. Common causes:"
+        warn "  1. SSH key not added to GitHub (test: ssh -T git@github.com)"
+        warn "  2. Org enforces SSO and your key isn't authorised for arc-simulations"
+        warn "     (Settings → SSH keys → 'Configure SSO' next to your key)"
+        warn "  3. Repo doesn't exist yet at $TEAM_VAULT_URL"
+        warn "Skipping company-vault setup. Fix the above and re-run setup.sh."
+        INSTALL_COMPANY_VAULT=no
+      fi
+    fi
+  fi
 fi
 
 # 0c. Groups

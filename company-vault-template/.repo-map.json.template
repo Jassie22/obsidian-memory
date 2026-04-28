@@ -1,30 +1,40 @@
 {
-  "_comment": "Lives at ~/company-vault/.repo-map.json. Maps git remotes to group slugs so Claude can detect the active group automatically when a teammate cd's into a repo. Committed and shared — every teammate gets correct routing for known repos with zero per-machine config. Add a new repo with a one-line PR. Globs use shell-style * and ?.",
+  "_comment": "Lives at ~/company-vault/.repo-map.json. Maps git remotes to group slugs so Claude can detect the active group automatically when a teammate cd's into a repo. Committed and shared — every teammate gets correct routing for known repos with zero per-machine config. Add a new repo with a one-line PR. Globs use shell-style * and ?. The examples below match the arc-simulations org and the existing groups (arc/truenode/cinesynth/pbtg) — edit the repo names as those become real.",
   "mappings": [
     {
-      "remote": "github.com/yourorg/arc-frontend",
+      "remote": "github.com/arc-simulations/arc-*",
       "group": "arc"
     },
     {
-      "remote": "github.com/yourorg/arc-*",
-      "group": "arc"
-    },
-    {
-      "remote": "github.com/yourorg/truenode",
+      "remote": "github.com/arc-simulations/truenode",
       "group": "truenode"
     },
     {
-      "remote": "github.com/yourorg/monorepo",
+      "remote": "github.com/arc-simulations/truenode-*",
+      "group": "truenode"
+    },
+    {
+      "remote": "github.com/arc-simulations/cinesynth",
+      "group": "cinesynth"
+    },
+    {
+      "remote": "github.com/arc-simulations/cinesynth-*",
+      "group": "cinesynth"
+    },
+    {
+      "remote": "github.com/arc-simulations/pbtg",
+      "group": "pbtg"
+    },
+    {
+      "remote": "github.com/arc-simulations/pbtg-*",
+      "group": "pbtg"
+    },
+    {
+      "remote": "github.com/arc-simulations/monorepo",
       "group": "shared",
       "path_overrides": [
-        {
-          "path": "services/truenode/**",
-          "group": "truenode"
-        },
-        {
-          "path": "services/arc-*/**",
-          "group": "arc"
-        }
+        {"path": "services/truenode/**", "group": "truenode"},
+        {"path": "services/arc-*/**",    "group": "arc"}
       ]
     }
   ],

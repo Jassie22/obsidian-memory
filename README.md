@@ -388,44 +388,57 @@ Hooks re-read the config on every fire. No restart needed.
 
 ## For teammates: getting set up
 
-Five minutes, six steps. Assumes the team already has the company-vault git remote set up (if you're the first one, see [Syncing](#syncing-across-devices-and-teammates) for the init commands).
+Two minutes, two commands. The team's company-vault URL is committed to `claude-global/team.json` in this repo, so `setup.sh` finds it automatically — no path or URL to remember.
 
-1. **Clone this repo and the company vault:**
-   ```bash
-   git clone https://github.com/Jassie22/obsidian-memory ~/obsidian-memory
-   git clone <team-shared-vault-url>                     ~/company-vault
-   ```
+**Prerequisite:** your SSH key must be authorised for `arc-simulations` on GitHub. Test with `ssh -T git@github.com` — you should see your username back. If the org enforces SSO, also click "Configure SSO" next to your key under Settings → SSH and GPG keys → "Authorize for arc-simulations".
 
-2. **Run setup with the company vault registered:**
-   ```bash
-   cd ~/obsidian-memory
-   ./setup.sh \
-     --company-vault ~/company-vault \
-     --author "Your Name" \
-     --groups journal,side-projects   # personal-vault groups; team groups come from ~/company-vault/.groups
-   ```
-   Other flags: `--scripts-dir <path>` (default `~/scripts`), `--dry-run` to preview, `--vault <path>` (default `~/vault`), `--no-company-vault` if you're going personal-only.
+```bash
+git clone https://github.com/Jassie22/obsidian-memory ~/obsidian-memory
+cd ~/obsidian-memory && ./setup.sh --author "Your Name"
+```
 
-3. **Make your personal vault a private git repo** (yours alone — notes here never reach teammates):
-   ```bash
-   cd ~/vault
-   git init && git add -A && git commit -m "initial vault"
-   git remote add origin <your-private-remote-url>   # MUST be private
-   git push -u origin main
-   ```
+The script:
 
-4. **Verify routing works:**
-   ```bash
-   cd ~/code/<some-team-repo>
-   ~/scripts/vault_resolve_group.sh    # should print the team group from company-vault/.repo-map.json
-   ```
-   If it falls through to the prompt, your company-vault `.repo-map.json` doesn't list this remote yet — open a PR to add it (one line).
+1. Reads `claude-global/team.json` and asks "Clone the team vault to `~/company-vault` now? [Y/n]" — answer Y. It clones from `git@github.com:arc-simulations/vault.git` for you.
+2. Creates your **personal** vault at `~/vault` (you'll be prompted for personal-vault groups — `journal`, `side-projects`, etc. — these are yours alone, not shared).
+3. Writes `~/.claude/vaults.json` so every Claude Code session knows about both vaults.
+4. Wires hooks into `~/.claude/settings.json`.
 
-5. **Edit `~/vault/rules/.config.yml`** if you want a different reminder cadence (default 10). Rules are personal, so this is per-teammate.
+Then make your personal vault a private git repo (yours alone — notes here never reach teammates):
 
-6. **Restart Claude Code** — hooks take effect only on next session.
+```bash
+cd ~/vault
+git init && git add -A && git commit -m "initial vault"
+git remote add origin <your-private-remote-url>   # MUST be private
+git push -u origin main
+```
 
-That's it. `/resume`, `/save`, `/recall`, `/capture`, `/promote`, `/add-rule` are all available in every project. Try `/save` once and check `git log` in `~/company-vault` to confirm `author: <Your Name>` shows up correctly.
+Verify routing works on a known team repo:
+
+```bash
+cd ~/code/<some-arc-simulations-repo>
+~/scripts/vault_resolve_group.sh    # should print the right group from company-vault/.repo-map.json
+```
+
+If it falls through to the prompt, the team's `.repo-map.json` doesn't list this remote yet — open a one-line PR against `arc-simulations/vault` to add it.
+
+Restart Claude Code so hooks take effect, then try `/save` once and check `git log` in `~/company-vault` to confirm `author: <Your Name>` shows up correctly.
+
+Other flags if you need them: `--no-company-vault` (skip the team vault entirely), `--vault <path>` (custom personal-vault location, default `~/vault`), `--company-vault <path>` (custom company-vault location, default `~/company-vault`), `--dry-run` to preview, `--scripts-dir <path>` (default `~/scripts`).
+
+### `claude-global/team.json` — for the team setup-owner
+
+One person on the team (typically whoever created the company-vault repo) maintains `claude-global/team.json`:
+
+```json
+{
+  "company_vault_url": "git@github.com:arc-simulations/vault.git",
+  "company_vault_default_path": "~/company-vault",
+  "company_vault_default_branch": "main"
+}
+```
+
+Once committed and pushed to obsidian-memory, every teammate who clones obsidian-memory after that gets one-command onboarding. The clone URL itself isn't a secret (the repo it points at is private — only authorised teammates can actually clone), so it's safe to commit.
 
 ### Daily habits when you're sharing a company vault
 
