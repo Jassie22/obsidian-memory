@@ -4,9 +4,21 @@
 .index.db-wal
 .index.db-shm
 
-# Obsidian workspace state (per-device)
+# Obsidian per-user state — preferences, plugin toggles, graph zoom etc.
+# vary per teammate; sharing them causes pointless merge conflicts.
 .obsidian/workspace*
 .obsidian/cache
+.obsidian/app.json
+.obsidian/core-plugins.json
+.obsidian/community-plugins.json
+.obsidian/graph.json
+.obsidian/hotkeys.json
+.obsidian/types.json
+
+# Keep these in git (shared across team):
+#   .obsidian/snippets/      — author callout colors
+#   .obsidian/appearance.json — auto-enables the snippets
+#   .obsidian/plugins/       — pinned community plugins (e.g. Highlightr)
 
 # MOCs — regenerated locally on every /save. Tracking them in git
 # guarantees merge conflicts when 5 teammates push within minutes of each
