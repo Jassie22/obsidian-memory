@@ -8,6 +8,7 @@
 #   ./setup.sh --no-pip                              # skip all Python tools
 #   ./setup.sh --no-embed                            # skip semantic search deps only
 #   ./setup.sh --vault ~/mybrain                     # custom personal vault location
+#   ./setup.sh --no-personal-vault                   # skip personal vault entirely (company-only)
 #   ./setup.sh --company-vault ~/co-brain            # also seed a shared company vault
 #   ./setup.sh --no-company-vault                    # skip the company-vault prompt
 #   ./setup.sh --author "Your Name"                  # name for the `author:` frontmatter field
@@ -27,6 +28,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VAULT_DIR="${VAULT_DIR:-$HOME/vault}"
 COMPANY_VAULT_DIR="${COMPANY_VAULT_DIR:-}"
 INSTALL_COMPANY_VAULT=auto       # auto | yes | no
+INSTALL_PERSONAL_VAULT=yes       # yes | no
 AUTHOR_NAME="${VAULT_AUTHOR:-}"
 CLAUDE_DIR="$HOME/.claude"
 SCRIPTS_DIR="$HOME/scripts"
@@ -43,6 +45,7 @@ while [[ $# -gt 0 ]]; do
     --no-embed)          INSTALL_EMBED=0 ;;
     --no-obsidian)       INSTALL_OBSIDIAN=0 ;;
     --vault)             VAULT_DIR="$2"; shift ;;
+    --no-personal-vault) INSTALL_PERSONAL_VAULT=no ;;
     --company-vault)     COMPANY_VAULT_DIR="$2"; INSTALL_COMPANY_VAULT=yes; shift ;;
     --no-company-vault)  INSTALL_COMPANY_VAULT=no ;;
     --author)            AUTHOR_NAME="$2"; shift ;;
@@ -303,8 +306,14 @@ if [[ "$INSTALL_COMPANY_VAULT" == "yes" && -n "$TEAM_VAULT_URL" ]]; then
   fi
 fi
 
-# 0c. Groups
-if [[ -z "$MEM_GROUPS" ]]; then
+# 0c. Refuse "neither vault" — at least one is required.
+if [[ "$INSTALL_PERSONAL_VAULT" != "yes" && "$INSTALL_COMPANY_VAULT" != "yes" ]]; then
+  echo "ERROR: --no-personal-vault was passed but no company vault is being set up. At least one vault is required." >&2
+  exit 1
+fi
+
+# 0d. Groups (personal vault only)
+if [[ "$INSTALL_PERSONAL_VAULT" == "yes" && -z "$MEM_GROUPS" ]]; then
   if [[ -f "$VAULT_DIR/.groups" ]]; then
     MEM_GROUPS="$(tr '\n' ',' < "$VAULT_DIR/.groups")"
     MEM_GROUPS="${MEM_GROUPS%,}"
@@ -331,7 +340,10 @@ if [[ "$INSTALL_COMPANY_VAULT" == "yes" && -f "$COMPANY_VAULT_DIR/.groups" ]]; t
   COMPANY_GROUPS="$(tr '\n' ',' < "$COMPANY_VAULT_DIR/.groups" | sed 's/,$//')"
 fi
 
-# 1. Vault tree
+# 1-2b. Personal vault tree, CLAUDE.md, .gitignore, rules system
+# Skipped entirely if --no-personal-vault was passed — teammate using
+# only the shared company vault.
+if [[ "$INSTALL_PERSONAL_VAULT" == "yes" ]]; then
 say "Creating vault at $VAULT_DIR"
 run "mkdir -p \"$VAULT_DIR\"/{permanent,inbox,fleeting,templates,references,logs}"
 run "mkdir -p \"$VAULT_DIR\"/chats/{code,web}"
@@ -398,6 +410,9 @@ if [[ ! -d "$VAULT_DIR/rules" ]]; then
 else
   warn "$VAULT_DIR/rules already exists — leaving rule files alone. Update .config.yml manually if needed."
 fi
+else
+  ok "skipping personal vault setup (--no-personal-vault). Re-run without the flag if you change your mind — your existing notes won't be touched."
+fi
 
 # 2c. Company vault scaffold — only if the user opted in.
 if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
@@ -436,15 +451,17 @@ fi
 # it without env-var coordination across shells.
 say "Writing vault registry to $REGISTRY"
 if [[ $DRY_RUN -eq 1 ]]; then
-  printf '\033[1;35m dry\033[0m would write %s with author=%s, vaults=[personal:%s%s]\n' \
-    "$REGISTRY" "$AUTHOR_NAME" "$VAULT_DIR" \
-    "$([[ "$INSTALL_COMPANY_VAULT" == "yes" ]] && echo ", company:$COMPANY_VAULT_DIR")"
+  printf '\033[1;35m dry\033[0m would write %s with author=%s, vaults=[%s%s%s]\n' \
+    "$REGISTRY" "$AUTHOR_NAME" \
+    "$([[ "$INSTALL_PERSONAL_VAULT" == "yes" ]] && echo "personal:$VAULT_DIR")" \
+    "$([[ "$INSTALL_PERSONAL_VAULT" == "yes" && "$INSTALL_COMPANY_VAULT" == "yes" ]] && echo ", ")" \
+    "$([[ "$INSTALL_COMPANY_VAULT" == "yes" ]] && echo "company:$COMPANY_VAULT_DIR")"
 else
   mkdir -p "$CLAUDE_DIR"
   if command -v jq >/dev/null 2>&1; then
     # Build the JSON via jq so paths with quotes/spaces are handled correctly
     # and the file stays valid even if the user re-runs setup with new args.
-    if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
+    if [[ "$INSTALL_PERSONAL_VAULT" == "yes" && "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
       jq -n \
         --arg author "$AUTHOR_NAME" \
         --arg pp "$VAULT_DIR" \
@@ -457,7 +474,7 @@ else
             {name: "company",  path: $cp, role: "shared",  default_for: ["decision","runbook","gotcha","permanent"]}
           ]
         }' > "$REGISTRY"
-    else
+    elif [[ "$INSTALL_PERSONAL_VAULT" == "yes" ]]; then
       jq -n \
         --arg author "$AUTHOR_NAME" \
         --arg pp "$VAULT_DIR" \
@@ -468,19 +485,43 @@ else
             {name: "personal", path: $pp, role: "private", default_for: ["all"]}
           ]
         }' > "$REGISTRY"
+    else
+      jq -n \
+        --arg author "$AUTHOR_NAME" \
+        --arg cp "$COMPANY_VAULT_DIR" \
+        '{
+          author: $author,
+          schema_version: 1,
+          vaults: [
+            {name: "company", path: $cp, role: "shared", default_for: ["all"]}
+          ]
+        }' > "$REGISTRY"
     fi
     ok "registry written: author=$AUTHOR_NAME, $(jq '.vaults | length' "$REGISTRY") vault(s)"
   else
     warn "jq missing — writing minimal registry without jq (re-run after installing jq for a cleaner file)"
-    cat > "$REGISTRY" <<JSON
+    if [[ "$INSTALL_PERSONAL_VAULT" == "yes" ]]; then
+      cat > "$REGISTRY" <<JSON
 {
   "author": "$AUTHOR_NAME",
   "schema_version": 1,
   "vaults": [
-    {"name": "personal", "path": "$VAULT_DIR", "role": "private"}
+    {"name": "personal", "path": "$VAULT_DIR", "role": "private"}$([[ "$INSTALL_COMPANY_VAULT" == "yes" ]] && echo ",
+    {\"name\": \"company\", \"path\": \"$COMPANY_VAULT_DIR\", \"role\": \"shared\"}")
   ]
 }
 JSON
+    else
+      cat > "$REGISTRY" <<JSON
+{
+  "author": "$AUTHOR_NAME",
+  "schema_version": 1,
+  "vaults": [
+    {"name": "company", "path": "$COMPANY_VAULT_DIR", "role": "shared"}
+  ]
+}
+JSON
+    fi
   fi
 fi
 
@@ -530,8 +571,8 @@ else
   warn "jq not installed — skipping settings.json merge. Install jq and re-run, or copy hooks block manually from claude-global/settings.json"
 fi
 
-# 4c. Seed ~/vault/rules.md
-if [[ -x "$SCRIPTS_DIR/rules_rebuild.py" ]]; then
+# 4c. Seed ~/vault/rules.md (rules live in the personal vault only)
+if [[ "$INSTALL_PERSONAL_VAULT" == "yes" && -x "$SCRIPTS_DIR/rules_rebuild.py" ]]; then
   run "VAULT_DIR=\"$VAULT_DIR\" \"$SCRIPTS_DIR/rules_rebuild.py\" || true"
 fi
 
@@ -550,14 +591,18 @@ fi
 if [[ $INSTALL_PIP -eq 1 ]]; then
   if [[ -n "$PIP" ]]; then
     say "Installing Python tools (graphifyy, claude-conversation-extractor)"
-    run "\"$PIP\" install --user --upgrade graphifyy claude-conversation-extractor \
+    # PEP 668 (Debian/Ubuntu 23.04+) blocks `pip install --user` on system
+    # python. Try --user first; fall back to --break-system-packages.
+    run "\"$PIP\" install --user --upgrade graphifyy claude-conversation-extractor 2>/dev/null \
+      || \"$PIP\" install --user --break-system-packages --upgrade graphifyy claude-conversation-extractor \
       || warn 'graphify/extractor install failed — retry manually'"
   else
     warn "pip not found — skipping Python tools"
   fi
   if [[ $INSTALL_EMBED -eq 1 && -n "$PIP" ]]; then
     say "Installing semantic search deps (fastembed, sqlite-vec) — ~150MB"
-    run "\"$PIP\" install --user --upgrade fastembed sqlite-vec \
+    run "\"$PIP\" install --user --upgrade fastembed sqlite-vec 2>/dev/null \
+      || \"$PIP\" install --user --break-system-packages --upgrade fastembed sqlite-vec \
       || warn 'embedding deps install failed — /recall will not work until fixed'"
   elif [[ $INSTALL_EMBED -eq 0 ]]; then
     warn "semantic search deps skipped (--no-embed)"
@@ -572,8 +617,16 @@ cat <<EOF
 Setup complete.
 
 Author:           $AUTHOR_NAME
+EOF
+if [[ "$INSTALL_PERSONAL_VAULT" == "yes" ]]; then
+cat <<EOF
 Personal vault:   $VAULT_DIR  (groups: $(tr '\n' ',' < "$VAULT_DIR/.groups" | sed 's/,$//'))
 EOF
+else
+cat <<EOF
+Personal vault:   (skipped — --no-personal-vault)
+EOF
+fi
 if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
 cat <<EOF
 Company vault:    $COMPANY_VAULT_DIR  (groups: $(tr '\n' ',' < "$COMPANY_VAULT_DIR/.groups" 2>/dev/null | sed 's/,$//'))
@@ -583,32 +636,33 @@ cat <<EOF
 Registry:         $REGISTRY
 
 Next steps:
+EOF
+if [[ "$INSTALL_PERSONAL_VAULT" == "yes" ]]; then
+cat <<EOF
   1. Open Obsidian → "Open folder as vault" → $VAULT_DIR
-$(if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
-echo "     Then add a second vault: $COMPANY_VAULT_DIR"
-fi)
-  2. Make the personal vault a private git repo (yours alone):
+$(if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then echo "     Then add a second vault: $COMPANY_VAULT_DIR"; fi)
+  2. Make the personal vault a private git repo (yours alone, optional):
        cd $VAULT_DIR && git init && git add -A && git commit -m "initial vault"
        git remote add origin <your-private-repo-url>
        git push -u origin main
-$(if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
-cat <<EOC
-  2b. Initialize the company vault and point it at the *team* remote:
+EOF
+elif [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
+cat <<EOF
+  1. Open Obsidian → "Open folder as vault" → $COMPANY_VAULT_DIR
+EOF
+fi
+if [[ "$INSTALL_COMPANY_VAULT" == "yes" && ! -d "$COMPANY_VAULT_DIR/.git" ]]; then
+cat <<EOF
+  2b. Initialize the company vault and point it at the *team* remote (creator only):
        cd $COMPANY_VAULT_DIR && git init && git add -A && git commit -m "initial company vault"
        git remote add origin <team-shared-repo-url>
        git push -u origin main
-       # Teammates: skip the init/commit, just \`git clone <team-shared-repo-url> $COMPANY_VAULT_DIR\`,
-       # then run setup.sh --company-vault $COMPANY_VAULT_DIR --author "Your Name"
-       # to register it locally.
-EOC
-fi)
-  3. Drop the project template into any repo (or skip if you wired the repo
-     into $COMPANY_VAULT_DIR/.repo-map.json — auto-detection means no
-     per-repo CLAUDE.md drop-in is needed):
-       cp $REPO_DIR/projects/example-group/CLAUDE.md /path/to/repo/CLAUDE.md
-  4. Build the semantic index (covers all registered vaults):
-       python $SCRIPTS_DIR/vault_search.py index
-  5. Start a Claude Code session and try /resume, /recall, /save, /promote.
+EOF
+fi
+cat <<EOF
+  3. Build the semantic index (covers all registered vaults):
+       $SCRIPTS_DIR/vault_recall.sh index
+  4. Restart Claude Code, then try /resume, /recall, /save, /promote.
 
 EOF
 fi
