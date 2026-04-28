@@ -83,7 +83,7 @@ title: Note Name
 description: One-sentence hook used in the MOC.
 group: <group>           # must match a slug in .groups
 tags: [<group>, decision]
-author: Jassie           # who wrote / last meaningfully updated this
+author: Alex             # who wrote / last meaningfully updated this
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 status: active           # active | superseded | archived
@@ -92,7 +92,7 @@ status: active           # active | superseded | archived
 
 `author:` is **mandatory** in the company vault — 5 people writing here means provenance matters. Resolved from `~/.claude/vaults.json` `.author` field (set once at setup time). Don't make up an author; use `~/scripts/vault_author.sh` to resolve.
 
-When a note is meaningfully updated by someone other than the original author, append the new author to a comma-separated list: `author: Jassie, Sam`. Bump `updated:` on every edit.
+When a note is meaningfully updated by someone other than the original author, append the new author to a comma-separated list: `author: Alex, Sam`. Bump `updated:` on every edit.
 
 ### Folder semantics (company vault)
 

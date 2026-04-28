@@ -443,7 +443,7 @@ Once committed and pushed to obsidian-memory, every teammate who clones obsidian
 ### Daily habits when you're sharing a company vault
 
 - **Pull before you write a long note.** The session-start hook handles 1h staleness automatically, but if you're about to write a major decision and you've been heads-down for a while, `cd ~/company-vault && git pull` first.
-- **Author attribution is automatic** — your name lands in `author:` from the registry. If you edit someone else's note meaningfully, append your name (`author: Sam, Jassie`).
+- **Author attribution is automatic** — your name lands in `author:` from the registry. If you edit someone else's note meaningfully, append your name (`author: Sam, Alex`).
 - **Use `/promote --to company`** to lift personal notes that prove durable. Don't write directly into the company vault unless the note is clearly team-relevant from the start.
 - **Don't add personal rules to the company vault.** Rules are per-user. Team behavioral conventions go in the company vault's per-group `CLAUDE.md`.
 

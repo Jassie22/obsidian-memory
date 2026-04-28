@@ -10,7 +10,7 @@
 #   ./setup.sh --vault ~/mybrain                     # custom personal vault location
 #   ./setup.sh --company-vault ~/co-brain            # also seed a shared company vault
 #   ./setup.sh --no-company-vault                    # skip the company-vault prompt
-#   ./setup.sh --author "Jassie"                     # name for the `author:` frontmatter field
+#   ./setup.sh --author "Your Name"                  # name for the `author:` frontmatter field
 #   ./setup.sh --scripts-dir ~/bin/claude            # custom scripts dir (default ~/scripts)
 #   ./setup.sh --dry-run                             # print planned actions, write nothing
 #

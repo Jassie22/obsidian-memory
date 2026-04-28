@@ -141,7 +141,7 @@ Distinct from proactive note-writing: `/capture` is **user-triggered**, lands in
 Move a note from `~/vault/inbox/` or `~/vault/fleeting/` into a permanent location.
 
 - Default destination: same vault, into `permanent/` or the right group folder.
-- `--to company` (only valid if a company vault is registered): move into `~/company-vault/$GROUP/` (or `permanent/` for cross-group). Set `author:` to the original author from frontmatter (don't overwrite); if a different teammate is doing the promotion, append their name (`author: Jassie, Sam`).
+- `--to company` (only valid if a company vault is registered): move into `~/company-vault/$GROUP/` (or `permanent/` for cross-group). Set `author:` to the original author from frontmatter (don't overwrite); if a different teammate is doing the promotion, append their name (`author: Alex, Sam`).
 - `--to personal`: move from company → personal. Rare; usually means demoting a note that turned out to be a personal preference rather than a team rule.
 
 Always ensure: frontmatter complete, ≥2 wikilinks, `description:` set, `updated:` bumped. Cross-vault promotions preserve `created:` from the source.
@@ -190,7 +190,7 @@ Stamp the chosen vault into the spawn prompt — never let the background agent 
 3. 0.7-1.0 → read the candidate; same topic → update; related → create new + cross-wikilink.
 4. All >1.0 → create new.
 
-When updating an existing note in the **company** vault that someone else originally authored: keep their name in `author:` and append yours: `author: Sam, Jassie`. Bump `updated:`. Add a dated `## Update YYYY-MM-DD (Jassie)` subsection rather than overwriting their prose silently.
+When updating an existing note in the **company** vault that someone else originally authored: keep their name in `author:` and append yours: `author: Sam, Alex`. Bump `updated:`. Add a dated `## Update YYYY-MM-DD (Alex)` subsection rather than overwriting their prose silently.
 
 Superseded decisions: never delete. Add `status: superseded-by [[new-note]]` to the old note.
 
