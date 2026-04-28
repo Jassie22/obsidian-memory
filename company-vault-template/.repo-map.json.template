@@ -1,0 +1,35 @@
+{
+  "_comment": "Lives at ~/company-vault/.repo-map.json. Maps git remotes to group slugs so Claude can detect the active group automatically when a teammate cd's into a repo. Committed and shared — every teammate gets correct routing for known repos with zero per-machine config. Add a new repo with a one-line PR. Globs use shell-style * and ?.",
+  "mappings": [
+    {
+      "remote": "github.com/yourorg/arc-frontend",
+      "group": "arc"
+    },
+    {
+      "remote": "github.com/yourorg/arc-*",
+      "group": "arc"
+    },
+    {
+      "remote": "github.com/yourorg/truenode",
+      "group": "truenode"
+    },
+    {
+      "remote": "github.com/yourorg/monorepo",
+      "group": "shared",
+      "path_overrides": [
+        {
+          "path": "services/truenode/**",
+          "group": "truenode"
+        },
+        {
+          "path": "services/arc-*/**",
+          "group": "arc"
+        }
+      ]
+    }
+  ],
+  "defaults": {
+    "vault": "company",
+    "prompt_on_miss": true
+  }
+}

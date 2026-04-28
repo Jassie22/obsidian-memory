@@ -16,7 +16,13 @@
 # Return contract:
 #   exit 0 + empty stdout        → allow
 #   exit 0 + JSON deny on stdout → block with structured reason
+#
+# Why this matters even more with a shared vault: a leaked secret in
+# ~/company-vault is now visible to every teammate, not just the author.
 set -u
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/vault_registry.sh"
 
 payload="$(cat)"
 
@@ -26,11 +32,10 @@ target=$(printf '%s' "$payload" | jq -r '
   .tool_input.notebook_path //
   empty' 2>/dev/null)
 
-# only guard writes landing inside the vault
-case "$target" in
-  "$HOME/vault/"*) ;;
-  *) exit 0 ;;
-esac
+# only guard writes landing inside any registered vault
+if ! vault_for_path "$target" >/dev/null; then
+  exit 0
+fi
 
 # candidate content: new_string for Edit, content for Write, joined edits for MultiEdit
 content=$(printf '%s' "$payload" | jq -r '

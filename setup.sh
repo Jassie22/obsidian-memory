@@ -3,18 +3,31 @@
 # Idempotent: safe to re-run on an existing machine / vault.
 #
 # Usage:
-#   ./setup.sh                                 # prompts for groups
-#   ./setup.sh --groups work,personal          # non-interactive
-#   ./setup.sh --no-pip                        # skip all Python tools
-#   ./setup.sh --no-embed                      # skip semantic search deps only
-#   ./setup.sh --vault ~/mybrain               # custom vault location
-#   ./setup.sh --scripts-dir ~/bin/claude      # custom scripts dir (default ~/scripts)
-#   ./setup.sh --dry-run                       # print planned actions, write nothing
+#   ./setup.sh                                       # prompts for groups + author
+#   ./setup.sh --groups work,personal                # non-interactive groups
+#   ./setup.sh --no-pip                              # skip all Python tools
+#   ./setup.sh --no-embed                            # skip semantic search deps only
+#   ./setup.sh --vault ~/mybrain                     # custom personal vault location
+#   ./setup.sh --company-vault ~/co-brain            # also seed a shared company vault
+#   ./setup.sh --no-company-vault                    # skip the company-vault prompt
+#   ./setup.sh --author "Jassie"                     # name for the `author:` frontmatter field
+#   ./setup.sh --scripts-dir ~/bin/claude            # custom scripts dir (default ~/scripts)
+#   ./setup.sh --dry-run                             # print planned actions, write nothing
 #
+# Multi-vault model (since v0.4):
+#   - Personal vault (~/vault, role: private) — yours alone. Logs, captures,
+#     personal rules, half-formed proactive notes.
+#   - Company vault (~/company-vault, role: shared) — same git remote as
+#     teammates. Decisions, runbooks, gotchas, cross-group permanent notes.
+#   The registry at ~/.claude/vaults.json drives both. Author name is set
+#   once here and stamped into every note's `author:` frontmatter field.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VAULT_DIR="${VAULT_DIR:-$HOME/vault}"
+COMPANY_VAULT_DIR="${COMPANY_VAULT_DIR:-}"
+INSTALL_COMPANY_VAULT=auto       # auto | yes | no
+AUTHOR_NAME="${VAULT_AUTHOR:-}"
 CLAUDE_DIR="$HOME/.claude"
 SCRIPTS_DIR="$HOME/scripts"
 
@@ -26,13 +39,16 @@ MEM_GROUPS=""
 DRY_RUN=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --no-pip)      INSTALL_PIP=0 ;;
-    --no-embed)    INSTALL_EMBED=0 ;;
-    --no-obsidian) INSTALL_OBSIDIAN=0 ;;
-    --vault)       VAULT_DIR="$2"; shift ;;
-    --groups)      MEM_GROUPS="$2"; shift ;;
-    --scripts-dir) SCRIPTS_DIR="$2"; shift ;;
-    --dry-run)     DRY_RUN=1 ;;
+    --no-pip)            INSTALL_PIP=0 ;;
+    --no-embed)          INSTALL_EMBED=0 ;;
+    --no-obsidian)       INSTALL_OBSIDIAN=0 ;;
+    --vault)             VAULT_DIR="$2"; shift ;;
+    --company-vault)     COMPANY_VAULT_DIR="$2"; INSTALL_COMPANY_VAULT=yes; shift ;;
+    --no-company-vault)  INSTALL_COMPANY_VAULT=no ;;
+    --author)            AUTHOR_NAME="$2"; shift ;;
+    --groups)            MEM_GROUPS="$2"; shift ;;
+    --scripts-dir)       SCRIPTS_DIR="$2"; shift ;;
+    --dry-run)           DRY_RUN=1 ;;
     -h|--help)
       grep '^# ' "$0" | sed 's/^# //'
       exit 0
@@ -178,24 +194,79 @@ ensure_obsidian() {
   return 1
 }
 
-# 0. Groups
+# 0a. Author name — stamped into every note's `author:` frontmatter field.
+# Critical when the company vault is shared with teammates: makes provenance
+# visible inline rather than requiring `git blame`.
+REGISTRY="$CLAUDE_DIR/vaults.json"
+if [[ -z "$AUTHOR_NAME" ]]; then
+  if [[ -f "$REGISTRY" ]] && command -v jq >/dev/null 2>&1; then
+    AUTHOR_NAME="$(jq -r '.author // empty' "$REGISTRY" 2>/dev/null)"
+  fi
+  if [[ -z "$AUTHOR_NAME" ]]; then
+    git_name="$(git config --global user.name 2>/dev/null || true)"
+    default_name="${git_name:-$USER}"
+    read -rp "Author name (used in note frontmatter, will be visible to teammates if you have a company vault) [$default_name]: " AUTHOR_NAME
+    AUTHOR_NAME="${AUTHOR_NAME:-$default_name}"
+  else
+    ok "reusing author from registry: $AUTHOR_NAME"
+  fi
+fi
+
+# 0b. Company vault prompt (only on fresh installs without an existing decision).
+if [[ "$INSTALL_COMPANY_VAULT" == "auto" ]]; then
+  if [[ -f "$REGISTRY" ]] && command -v jq >/dev/null 2>&1; then
+    existing_co="$(jq -r '.vaults[]? | select(.role=="shared") | .path' "$REGISTRY" 2>/dev/null | head -n1)"
+    if [[ -n "$existing_co" ]]; then
+      INSTALL_COMPANY_VAULT=yes
+      COMPANY_VAULT_DIR="${COMPANY_VAULT_DIR:-${existing_co/#\~/$HOME}}"
+      ok "reusing existing company vault from registry: $COMPANY_VAULT_DIR"
+    fi
+  fi
+fi
+if [[ "$INSTALL_COMPANY_VAULT" == "auto" ]]; then
+  echo
+  echo "Company vault (optional) — a second, *shared* vault for team-wide notes:"
+  echo "  · Same git remote across all teammates (5-person team typical)."
+  echo "  · Holds decisions, runbooks, gotchas, cross-group permanent notes."
+  echo "  · Personal vault stays for logs, captures, half-formed thoughts."
+  read -rp "Set up a company vault now? [y/N]: " yn
+  case "$yn" in
+    y|Y|yes|YES) INSTALL_COMPANY_VAULT=yes ;;
+    *)           INSTALL_COMPANY_VAULT=no  ;;
+  esac
+fi
+if [[ "$INSTALL_COMPANY_VAULT" == "yes" && -z "$COMPANY_VAULT_DIR" ]]; then
+  read -rp "Company vault path [\$HOME/company-vault]: " COMPANY_VAULT_DIR
+  COMPANY_VAULT_DIR="${COMPANY_VAULT_DIR:-$HOME/company-vault}"
+fi
+
+# 0c. Groups
 if [[ -z "$MEM_GROUPS" ]]; then
   if [[ -f "$VAULT_DIR/.groups" ]]; then
     MEM_GROUPS="$(tr '\n' ',' < "$VAULT_DIR/.groups")"
     MEM_GROUPS="${MEM_GROUPS%,}"
-    ok "reusing existing groups: $MEM_GROUPS"
+    ok "reusing existing personal-vault groups: $MEM_GROUPS"
   else
     template="$REPO_DIR/vault-template/.groups.template"
     if [[ -f "$template" ]]; then
-      echo "Groups live in ~/vault/.groups — one slug per line. Examples from template:"
+      echo "Personal-vault groups live in ~/vault/.groups — one slug per line. Examples:"
       grep -v '^#' "$template" | grep -v '^$' | sed 's/^/  /'
       echo "(none shown if the template has only commented examples)"
     fi
-    read -rp "Project groups (comma-separated, e.g. work,personal,research): " MEM_GROUPS
-    [[ -z "$MEM_GROUPS" ]] && MEM_GROUPS="work,personal"
+    read -rp "Personal-vault groups (comma-separated, e.g. journal,side-projects): " MEM_GROUPS
+    [[ -z "$MEM_GROUPS" ]] && MEM_GROUPS="personal"
   fi
 fi
 IFS=',' read -ra MEM_GROUP_ARR <<< "$MEM_GROUPS"
+
+# Company-vault groups are tracked separately and committed into the shared
+# repo, so they're a deliberate team decision rather than a per-machine setup
+# detail. We don't prompt — teammates pull `.groups` from the company-vault
+# remote and inherit whatever the team has agreed on.
+COMPANY_GROUPS=""
+if [[ "$INSTALL_COMPANY_VAULT" == "yes" && -f "$COMPANY_VAULT_DIR/.groups" ]]; then
+  COMPANY_GROUPS="$(tr '\n' ',' < "$COMPANY_VAULT_DIR/.groups" | sed 's/,$//')"
+fi
 
 # 1. Vault tree
 say "Creating vault at $VAULT_DIR"
@@ -253,6 +324,9 @@ if [[ ! -f "$VAULT_DIR/.gitignore" && -f "$REPO_DIR/vault-template/.gitignore" ]
 fi
 
 # 2b. Rules system — ~/vault/rules/
+# Rules are *personal* (per-user behavior preferences). They never live in the
+# shared company vault — what one teammate wants Claude to do isn't what the
+# whole team wants.
 if [[ ! -d "$VAULT_DIR/rules" ]]; then
   run "mkdir -p \"$VAULT_DIR/rules\""
   run "cp \"$REPO_DIR/vault-template/rules/\"*.md \"$VAULT_DIR/rules/\""
@@ -260,6 +334,91 @@ if [[ ! -d "$VAULT_DIR/rules" ]]; then
   ok "installed rules scaffold into $VAULT_DIR/rules (edit .config.yml to tune reminder interval)"
 else
   warn "$VAULT_DIR/rules already exists — leaving rule files alone. Update .config.yml manually if needed."
+fi
+
+# 2c. Company vault scaffold — only if the user opted in.
+if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
+  say "Creating company vault at $COMPANY_VAULT_DIR"
+  run "mkdir -p \"$COMPANY_VAULT_DIR\"/{permanent,templates}"
+  if [[ ! -f "$COMPANY_VAULT_DIR/.groups" ]]; then
+    if [[ -f "$REPO_DIR/company-vault-template/.groups.template" ]]; then
+      run "cp \"$REPO_DIR/company-vault-template/.groups.template\" \"$COMPANY_VAULT_DIR/.groups\""
+      warn "$COMPANY_VAULT_DIR/.groups created from template — edit it and commit, then teammates clone the repo and inherit the same group list"
+    else
+      run ": > \"$COMPANY_VAULT_DIR/.groups\""
+    fi
+  fi
+  if [[ ! -f "$COMPANY_VAULT_DIR/CLAUDE.md" ]]; then
+    run "cp \"$REPO_DIR/company-vault-template/CLAUDE.md\" \"$COMPANY_VAULT_DIR/CLAUDE.md\""
+    ok "installed $COMPANY_VAULT_DIR/CLAUDE.md"
+  else
+    warn "$COMPANY_VAULT_DIR/CLAUDE.md already exists — leaving it alone"
+  fi
+  if [[ ! -f "$COMPANY_VAULT_DIR/.gitignore" ]]; then
+    run "cp \"$REPO_DIR/company-vault-template/.gitignore\" \"$COMPANY_VAULT_DIR/.gitignore\""
+    ok "installed company-vault .gitignore (ignores _MOC.md to avoid 5-way merge conflicts)"
+  fi
+  if [[ ! -f "$COMPANY_VAULT_DIR/templates/default-note.md" ]]; then
+    run "cp \"$REPO_DIR/company-vault-template/templates/default-note.md\" \"$COMPANY_VAULT_DIR/templates/default-note.md\""
+  fi
+  if [[ ! -f "$COMPANY_VAULT_DIR/.repo-map.json" && -f "$REPO_DIR/company-vault-template/.repo-map.json.template" ]]; then
+    run "cp \"$REPO_DIR/company-vault-template/.repo-map.json.template\" \"$COMPANY_VAULT_DIR/.repo-map.json\""
+    warn "$COMPANY_VAULT_DIR/.repo-map.json seeded from template — edit it with your real GitHub remotes (e.g. github.com/yourorg/arc-*) so Claude can auto-detect groups"
+  fi
+fi
+
+# 2d. Vault registry — single source of truth for which vaults Claude knows
+# about, where they live, and which is shared vs. private. Lives at
+# ~/.claude/vaults.json so Claude Code (which already reads this dir) can find
+# it without env-var coordination across shells.
+say "Writing vault registry to $REGISTRY"
+if [[ $DRY_RUN -eq 1 ]]; then
+  printf '\033[1;35m dry\033[0m would write %s with author=%s, vaults=[personal:%s%s]\n' \
+    "$REGISTRY" "$AUTHOR_NAME" "$VAULT_DIR" \
+    "$([[ "$INSTALL_COMPANY_VAULT" == "yes" ]] && echo ", company:$COMPANY_VAULT_DIR")"
+else
+  mkdir -p "$CLAUDE_DIR"
+  if command -v jq >/dev/null 2>&1; then
+    # Build the JSON via jq so paths with quotes/spaces are handled correctly
+    # and the file stays valid even if the user re-runs setup with new args.
+    if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
+      jq -n \
+        --arg author "$AUTHOR_NAME" \
+        --arg pp "$VAULT_DIR" \
+        --arg cp "$COMPANY_VAULT_DIR" \
+        '{
+          author: $author,
+          schema_version: 1,
+          vaults: [
+            {name: "personal", path: $pp, role: "private", default_for: ["log","capture","rule","draft"]},
+            {name: "company",  path: $cp, role: "shared",  default_for: ["decision","runbook","gotcha","permanent"]}
+          ]
+        }' > "$REGISTRY"
+    else
+      jq -n \
+        --arg author "$AUTHOR_NAME" \
+        --arg pp "$VAULT_DIR" \
+        '{
+          author: $author,
+          schema_version: 1,
+          vaults: [
+            {name: "personal", path: $pp, role: "private", default_for: ["all"]}
+          ]
+        }' > "$REGISTRY"
+    fi
+    ok "registry written: author=$AUTHOR_NAME, $(jq '.vaults | length' "$REGISTRY") vault(s)"
+  else
+    warn "jq missing — writing minimal registry without jq (re-run after installing jq for a cleaner file)"
+    cat > "$REGISTRY" <<JSON
+{
+  "author": "$AUTHOR_NAME",
+  "schema_version": 1,
+  "vaults": [
+    {"name": "personal", "path": "$VAULT_DIR", "role": "private"}
+  ]
+}
+JSON
+  fi
 fi
 
 # 3. Global Claude Code instructions
@@ -349,20 +508,44 @@ cat <<EOF
 
 Setup complete.
 
-Groups: $(tr '\n' ',' < "$VAULT_DIR/.groups" | sed 's/,$//')
+Author:           $AUTHOR_NAME
+Personal vault:   $VAULT_DIR  (groups: $(tr '\n' ',' < "$VAULT_DIR/.groups" | sed 's/,$//'))
+EOF
+if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
+cat <<EOF
+Company vault:    $COMPANY_VAULT_DIR  (groups: $(tr '\n' ',' < "$COMPANY_VAULT_DIR/.groups" 2>/dev/null | sed 's/,$//'))
+EOF
+fi
+cat <<EOF
+Registry:         $REGISTRY
 
 Next steps:
   1. Open Obsidian → "Open folder as vault" → $VAULT_DIR
-  2. Make the vault a private git repo:
+$(if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
+echo "     Then add a second vault: $COMPANY_VAULT_DIR"
+fi)
+  2. Make the personal vault a private git repo (yours alone):
        cd $VAULT_DIR && git init && git add -A && git commit -m "initial vault"
        git remote add origin <your-private-repo-url>
        git push -u origin main
-  3. Drop the project template into any repo:
+$(if [[ "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
+cat <<EOC
+  2b. Initialize the company vault and point it at the *team* remote:
+       cd $COMPANY_VAULT_DIR && git init && git add -A && git commit -m "initial company vault"
+       git remote add origin <team-shared-repo-url>
+       git push -u origin main
+       # Teammates: skip the init/commit, just \`git clone <team-shared-repo-url> $COMPANY_VAULT_DIR\`,
+       # then run setup.sh --company-vault $COMPANY_VAULT_DIR --author "Your Name"
+       # to register it locally.
+EOC
+fi)
+  3. Drop the project template into any repo (or skip if you wired the repo
+     into $COMPANY_VAULT_DIR/.repo-map.json — auto-detection means no
+     per-repo CLAUDE.md drop-in is needed):
        cp $REPO_DIR/projects/example-group/CLAUDE.md /path/to/repo/CLAUDE.md
-       # then edit the group: field to match one of your groups
-  4. Build the semantic index:
+  4. Build the semantic index (covers all registered vaults):
        python $SCRIPTS_DIR/vault_search.py index
-  5. Start a Claude Code session and try /resume, /recall, /save.
+  5. Start a Claude Code session and try /resume, /recall, /save, /promote.
 
 EOF
 fi

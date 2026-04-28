@@ -7,10 +7,17 @@
 #   .tool_input.command    (Bash)
 #
 # Injects via stdout — a block containing any rules whose `scope:` matches
-# "vault" (if target path is inside ~/vault/) or "tool:<ToolName>".
+# "vault" (if target path is inside ANY registered vault) or "tool:<ToolName>".
+#
+# Rules live in the **personal** vault only. Silent no-op if no private vault
+# is registered.
 set -u
 
-VAULT="${VAULT_DIR:-$HOME/vault}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/vault_registry.sh"
+
+VAULT="$(vault_personal_path)"
+[[ -z "$VAULT" ]] && VAULT="${VAULT_DIR:-$HOME/vault}"
 RULES_DIR="$VAULT/rules"
 CONFIG="$RULES_DIR/.config.yml"
 [[ -d "$RULES_DIR" ]] || exit 0
@@ -27,9 +34,9 @@ target=$(printf '%s' "$payload" | jq -r '
   empty' 2>/dev/null)
 
 scopes=("tool:$tool_name")
-case "$target" in
-  "$VAULT/"*) scopes+=("vault") ;;
-esac
+if vault_for_path "$target" >/dev/null 2>&1; then
+  scopes+=("vault")
+fi
 
 blocked_raw=$(grep -E '^\s*blocked_scopes:' "$CONFIG" 2>/dev/null | head -1)
 
