@@ -59,6 +59,11 @@
           },
           {
             "type": "command",
+            "command": "~/scripts/vault-shared-write-guard.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "~/scripts/rules-preguard.sh",
             "timeout": 5
           }
