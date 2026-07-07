@@ -591,6 +591,25 @@ if command -v jq >/dev/null 2>&1; then
     ok "installed fresh settings.json with hooks + statusline"
   fi
   rm -f "$tmp_src"
+  # Optional: wire the shared-vault consent guards, but ONLY when a company
+  # vault is configured. Personal-only installs never get these hooks. The
+  # base merge above resets .hooks from the template (which omits these), so
+  # re-running setup never duplicates them.
+  if [[ $DRY_RUN -eq 0 && "$INSTALL_COMPANY_VAULT" == "yes" && -f "$target" ]]; then
+    cg="${SCRIPTS_DIR/#$HOME/~}/vault-arc-consent-guard.sh"
+    bg="${SCRIPTS_DIR/#$HOME/~}/vault-arc-bash-guard.sh"
+    jq --arg cg "$cg" --arg bg "$bg" '
+      (.hooks.PreToolUse) |= (map(
+        if .matcher == "Write|Edit|MultiEdit"
+        then .hooks += [{"type":"command","command":$cg,"timeout":5}]
+        else . end))
+      | .hooks.PreToolUse += [{"matcher":"Bash","hooks":[{"type":"command","command":$bg,"timeout":5}]}]
+    ' "$target" > "$target.tmp" \
+      && mv "$target.tmp" "$target" \
+      && ok "wired shared-vault consent guards (company vault detected)"
+  elif [[ $DRY_RUN -eq 1 && "$INSTALL_COMPANY_VAULT" == "yes" ]]; then
+    warn "DRY RUN — would wire shared-vault consent guards (vault-arc-consent-guard.sh + vault-arc-bash-guard.sh)"
+  fi
   [[ $DRY_RUN -eq 0 ]] && warn "Restart Claude Code for hook changes to take effect"
 else
   warn "jq not installed — skipping settings.json merge. Install jq and re-run, or copy hooks block manually from claude-global/settings.json"
