@@ -28,7 +28,9 @@ vpath="${match#*	}"
 role="$(vault_list_rows | awk -F'\t' -v n="$vname" '$1==n{print $3; exit}')"
 
 cd "$vpath" || exit 0
-git diff --quiet && git diff --cached --quiet && exit 0
+# git diff ignores untracked files, so a brand-new note alone never
+# committed. status --porcelain sees new, modified and staged files.
+[[ -z "$(git status --porcelain)" ]] && exit 0
 git add -A >/dev/null 2>&1
 git commit -m "${vname}: auto-sync $(basename "$f")" --quiet 2>/dev/null || exit 0
 
